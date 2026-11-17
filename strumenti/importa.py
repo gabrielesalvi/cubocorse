@@ -1,0 +1,58 @@
+"""Prepara public/ con la versione giocabile di Cubo Corse, servita su https://cubocorse.gabrielesalvi.com
+
+Uso: ~/.openclaw/.venv/bin/python3 strumenti/importa.py
+Prende il gioco dall'ULTIMO COMMIT del repo privato (workspace/projects/cubo-corse), non dai file non committati.
+Si porta solo quello che serve per giocare: index.html, style.css, src/, vendor/, data/monza.json.
+Restano fuori test, strumenti, documenti e tessere satellitari. I font Google sono locali (risorse/).
+"""
+import io
+import shutil
+import subprocess
+import tarfile
+from pathlib import Path
+
+RADICE = Path(__file__).resolve().parent.parent
+ORIGINE = Path.home() / '.openclaw/workspace/projects/cubo-corse'
+DEST = RADICE / 'public'
+RISORSE = RADICE / 'risorse'
+DOMINIO = 'cubocorse.gabrielesalvi.com'
+PRENDI = ('index.html', 'style.css', 'src/', 'vendor/', 'data/monza.json')
+GOOGLE = '''  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,800;1,700;1,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+'''
+TESTA = '''  <meta name="description" content="Cubo Corse: gioco di corse GT in voxel nel browser, con Monza 1:1. Un progetto di Gabriele Salvi." />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="fonts/fonts.css" />
+'''
+
+commit = subprocess.run(['git', '-C', str(ORIGINE), 'rev-parse', '--short', 'HEAD'],
+                        check=True, capture_output=True, text=True).stdout.strip()
+archivio = subprocess.run(['git', '-C', str(ORIGINE), 'archive', '--format=tar', 'HEAD'],
+                          check=True, capture_output=True).stdout
+
+if DEST.exists():
+    shutil.rmtree(DEST)
+DEST.mkdir()
+with tarfile.open(fileobj=io.BytesIO(archivio)) as tar:
+    scelti = [m for m in tar.getmembers()
+              if m.isfile() and any(m.name == p or (p.endswith('/') and m.name.startswith(p)) for p in PRENDI)
+              and not m.name.endswith('.map')]
+    tar.extractall(DEST, members=scelti, filter='data')
+
+(DEST / 'fonts').mkdir()
+for f in RISORSE.glob('*.woff2'):
+    shutil.copy(f, DEST / 'fonts' / f.name)
+shutil.copy(RISORSE / 'fonts.css', DEST / 'fonts' / 'fonts.css')
+shutil.copy(RISORSE / 'favicon.svg', DEST / 'favicon.svg')
+
+html = (DEST / 'index.html').read_text(encoding='utf-8')
+if GOOGLE not in html:
+    raise SystemExit('index.html del gioco è cambiato: aggiorna il blocco GOOGLE in questo script')
+(DEST / 'index.html').write_text(html.replace(GOOGLE, TESTA), encoding='utf-8')
+(DEST / 'CNAME').write_text(DOMINIO + '\n')
+(DEST / 'VERSIONE.txt').write_text(f'cubo-corse {commit}\n')
+
+n = sum(1 for p in DEST.rglob('*') if p.is_file())
+mb = sum(p.stat().st_size for p in DEST.rglob('*') if p.is_file()) / 1e6
+print(f'ok → {DEST}  ·  cubo-corse {commit}  ·  {n} file, {mb:.1f} MB')

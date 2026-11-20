@@ -2,7 +2,8 @@
 
 Uso: ~/.openclaw/.venv/bin/python3 strumenti/importa.py
 Prende il gioco dall'ULTIMO COMMIT del repo privato (workspace/projects/cubo-corse), non dai file non committati.
-Si porta solo quello che serve per giocare: index.html, style.css, src/, vendor/, data/monza.json.
+Si porta solo quello che serve per giocare: index.html, style.css, src/, vendor/, data/monza.json e, dal gioco unito
+(fase 0, 20-11-2026), cs/ = costruttori e pacchetti dei circuiti di Circuit Studio (Roncadelle e Nenni, ~15 MB).
 Restano fuori test, strumenti, documenti e tessere satellitari. I font Google sono locali (risorse/).
 """
 import io
@@ -16,12 +17,12 @@ ORIGINE = Path.home() / '.openclaw/workspace/projects/cubo-corse'
 DEST = RADICE / 'public'
 RISORSE = RADICE / 'risorse'
 DOMINIO = 'cubocorse.gabrielesalvi.com'
-PRENDI = ('index.html', 'style.css', 'src/', 'vendor/', 'data/monza.json')
+PRENDI = ('index.html', 'style.css', 'src/', 'vendor/', 'data/monza.json', 'cs/viewer/', 'cs/pacchetti/')
 GOOGLE = '''  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,800;1,700;1,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 '''
-TESTA = '''  <meta name="description" content="Cubo Corse: gioco di corse GT in voxel nel browser, con Monza 1:1. Un progetto di Gabriele Salvi." />
+TESTA = '''  <meta name="description" content="Cubo Corse: gioco di corse GT nel browser, con Monza 1:1 in voxel e il circuito cittadino di Roncadelle. Un progetto di Gabriele Salvi." />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="fonts/fonts.css" />
 '''

@@ -1,3 +1,6 @@
+// Cubo Corse unito (fase 0, 20-11-2026): una sola fisica per le piste di Cubo Corse e per quelle di Circuit Studio.
+// Base = la guida di Circuit Studio (barriere a corpi solidi, modelli di guida, auto con inerzia e ingombri), più i pezzi
+// che c'erano solo in Cubo Corse (tetto allo sterzo da tastiera in realistica). Le righe «pacchetto» vengono da Circuit Studio.
 // Fisica arcade di una GT. Modello a bicicletta con carico aerodinamico, cambio automatico,
 // cerchio d'attrito sul posteriore, superfici, salti, urti contro le barriere.
 // Convenzioni: avanti = (cos yaw, sin yaw) sul piano x-z; destra = (-sin yaw, cos yaw); yaw>0 = svolta a destra.
@@ -5,30 +8,61 @@
 import { SURF, SURF_PHYS, BAR } from './track.js';
 
 const G = 9.81;
-// punti della sagoma dell'auto per gli urti (avanti, destra) in frazioni di mezza lunghezza/larghezza
+// punti della sagoma dell'auto per gli urti (avanti, destra) in frazioni di mezza lunghezza/larghezza (da Cubo Corse, 13-11)
 const SAGOMA = [1, -1, 1, 1, -1, -1, -1, 1, 1, 0, -1, 0, 0, -1, 0, 1];
-// barriere: e = rimbalzo (coefficiente di restituzione), mu = attrito di strisciata. Il cemento restituisce un po'
-// di più, guardrail e reti si deformano, le gomme del TecPro assorbono quasi tutto e frenano la strisciata.
+// barriere: e = rimbalzo (coefficiente di restituzione), mu = attrito di strisciata (Cubo Corse). Il cemento restituisce
+// un po' di più, guardrail e reti si deformano, le gomme e il TecPro assorbono quasi tutto e frenano la strisciata.
 const BARRIERA = { [BAR.WALL]: { e: 0.15, mu: 0.32 }, [BAR.GUARDRAIL]: { e: 0.1, mu: 0.38 }, [BAR.FENCE]: { e: 0.08, mu: 0.42 }, [BAR.TECPRO]: { e: 0.04, mu: 0.6 }, def: { e: 0.1, mu: 0.4 } };
 
-// Tre carrozzerie con prestazioni bilanciate (stile "balance of performance")
+// Sei auto (fase 0, decisione di Gabriele del 19-11): le tre di Cubo Corse e le tre di Circuit Studio, che cambiano
+// nome e id (prima coincidevano: falco, vespro, orsa). La Fast 74 è fuori dal gioco (il modello resta in Circuit Studio).
+// a, b = distanza del baricentro dall'asse anteriore e posteriore (m); iz = momento d'inerzia / massa (m²);
+// aeroAnt = quota anteriore del carico aerodinamico (0,5 se manca). modello = come si disegna: 'voxel' (carmodel.js,
+// Cubo Corse) o 'lowpoly' (auto3d.js, Circuit Studio, con forma = la sagoma di Circuit Studio da usare).
 export const CARS = [
+  // --- Cubo Corse: «balance of performance» fra tre carrozzerie
   {
-    id: 'falco', nome: 'Falco GT', tipo: 'Berlinetta a motore anteriore',
+    id: 'falco', nome: 'Falco GT', tipo: 'Berlinetta a motore anteriore', modello: 'voxel',
     mass: 1320, power: 420000, mu: 1.68, df: 1.30, cd: 0.49, a: 1.18, b: 1.47, cyl: 8, idleHz: 0.9,
     voce: { base: 0.5, grinta: 0.75 },
   },
   {
-    id: 'vespro', nome: 'Vespro R', tipo: 'Centrale, corta e nervosa',
+    id: 'vespro', nome: 'Vespro R', tipo: 'Centrale, corta e nervosa', modello: 'voxel',
     mass: 1260, power: 405000, mu: 1.72, df: 1.42, cd: 0.51, a: 1.34, b: 1.26, cyl: 6, idleHz: 1.1,
     voce: { base: 0.65, grinta: 0.9 },
   },
   {
-    id: 'orsa', nome: 'Orsa CL', tipo: 'Coda lunga, velocissima sul dritto',
+    id: 'orsa', nome: 'Orsa CL', tipo: 'Coda lunga, velocissima sul dritto', modello: 'voxel',
     mass: 1300, power: 412000, mu: 1.66, df: 1.24, cd: 0.45, a: 1.30, b: 1.40, cyl: 12, idleHz: 1.2,
     voce: { base: 0.8, grinta: 0.6 },
   },
+  // --- Circuit Studio (04-11): ispirate a tre GT vere
+  // - equilibrata: motore anteriore centrale e cambio al posteriore (transaxle), pesi quasi 50/50 (Mercedes-AMG GT3);
+  // - agile: motore posteriore a sbalzo, passo corto, peso sul posteriore, molta aderenza e poca inerzia (Porsche 911 GT3 R);
+  // - veloce sul dritto: motore centrale, coda lunga a bassa resistenza, meno carico, più inerzia (McLaren F1 GTR Longtail).
+  // Calabrone e Airone: 40% del carico aerodinamico davanti (decisione del 17-11): con il 50% fisso sopra i 150 km/h
+  // sovrasterzavano (posteriore −12,1% e −4,6% di tenuta a 200 km/h, docs/fisica-cc-cs-v2.html §4.4).
+  {
+    id: 'astore', nome: 'Astore GT8', era: 'Falco GT8', tipo: 'Equilibrata', ispirata: 'Mercedes-AMG GT3', modello: 'lowpoly', forma: 'falco',
+    motore: 'V8 6,2 litri aspirato, anteriore centrale, cambio al posteriore', disposizione: 'anteriore centrale',
+    mass: 1300, power: 410000, mu: 1.70, df: 1.32, cd: 0.48, a: 1.33, b: 1.30, iz: 1.55, halfL: 2.38, cyl: 8, idleHz: 0.9,
+    voce: { base: 0.45, grinta: 0.85 },
+  },
+  {
+    id: 'calabrone', nome: 'Calabrone RS', era: 'Vespro RS', tipo: 'Agile', ispirata: 'Porsche 911 GT3 R', modello: 'lowpoly', forma: 'vespro',
+    motore: 'boxer 6 cilindri 4,0 litri aspirato, posteriore a sbalzo', disposizione: 'posteriore',
+    mass: 1240, power: 380000, mu: 1.73, df: 1.40, cd: 0.50, a: 1.52, b: 0.94, iz: 1.32, halfL: 2.30, aeroAnt: 0.40, cyl: 6, fam: 'b6', idleHz: 1.1,
+    voce: { base: 0.7, grinta: 0.8 },
+  },
+  {
+    id: 'airone', nome: 'Airone LT', era: 'Orsa LT', tipo: 'Veloce sul dritto', ispirata: 'McLaren F1 GTR Longtail', modello: 'lowpoly', forma: 'orsa',
+    motore: 'V12 6,0 litri aspirato, centrale', disposizione: 'centrale',
+    mass: 1280, power: 425000, mu: 1.66, df: 1.18, cd: 0.425, a: 1.50, b: 1.22, iz: 1.75, halfL: 2.47, aeroAnt: 0.40, cyl: 12, idleHz: 1.2,
+    voce: { base: 0.8, grinta: 0.65 },
+  },
 ];
+/** indice dell'auto con quell'id (−1 se non c'è) */
+export const indiceAuto = (id) => CARS.findIndex((c) => c.id === id);
 
 const GEARS = [3.05, 2.32, 1.86, 1.53, 1.29, 1.11];
 const FINAL = 3.22;
@@ -51,11 +85,37 @@ export function nuoviDanni() {
 }
 
 /** aiuti della modalità arcade (vedi step) */
+// STEER_MARGIN = «sterzo da tastiera» nel menu: dolce 0,06 (Cubo Corse) o pronto 0,16 (Circuit Studio, dal 04-11: con 0,06
+// il giro arcade a Roncadelle era 9,6 s più lento dell'IA a parità di comandi). Il valore predefinito dipende dalla pista
+// (MARGINI_STERZO); lo imposta main.js con setArcadeTuning. STEER_MARGIN_SIM = tetto allo sterzo da tastiera in realistica.
+export const MARGINI_STERZO = { dolce: 0.06, pronto: 0.16 };
 export let STEER_MARGIN = 0.06, LAT_DAMP = 0.6, STEER_MARGIN_SIM = 0.06;
 export function setSimMargin(v) { STEER_MARGIN_SIM = v; }
 /** interruttori degli aiuti arcade (solo per le prove: tests/steer-step.mjs) */
 export const AIUTI = { controsterzo: true, limitatore: true, esc: true };
 export function setArcadeTuning(m, l) { STEER_MARGIN = m; LAT_DAMP = l; }
+/**
+ * Modello di guida (08-11): «precedente» = quello della guida prima del riallineamento del 07-11;
+ * «cubo» = quello di Cubo Corse del 07-11. Cambiano solo due cose: l'ESC (in entrambe le direzioni o solo contro il
+ * sovrasterzo; vale anche per l'IA) e la rampa dello sterzo da tastiera (Input.sample in main.js). «misto» = ESC precedente
+ * sotto 130 km/h e di Cubo Corse sopra, con la rampa di Cubo Corse. Predefinito: «misto» (08-11). Gli altri con ?guida=precedente|cubo nell'URL.
+ * Danni, pedali assistiti e il resto delle impostazioni sono indipendenti dal modello.
+ */
+// Nel gioco unito (fase 0): menu «Guida» = «Agile» (misto) o «Composta» (cubo); «precedente» solo da indirizzo (?guida=precedente).
+export const MODELLI_GUIDA = {
+  precedente: { nome: 'Guida (prima del 07-11)', escSoloSovrasterzo: false, sterzo: { su: 3.4, v0: 45, inverti: 7 } },
+  cubo: { nome: 'Composta', escSoloSovrasterzo: true, sterzo: { su: 5, v0: 60, inverti: 8 } },
+  // 08-11, dai confronti di tests/modelli.mjs: ESC «precedente» sotto i 130 km/h (aiuta a far girare l'auto nelle
+  // curve lente), solo contro il sovrasterzo sopra (niente pendolo), rampa dello sterzo di Cubo Corse
+  misto: { nome: 'Agile', escSoloSovrasterzo: true, escSoglia: 130 / 3.6, sterzo: { su: 5, v0: 60, inverti: 8 } },
+};
+// predefinito della fisica = «cubo» (Cubo Corse, così i test di Cubo Corse restano quelli); il gioco lo sceglie dal menu
+export const MODELLO = { k: 'cubo', ...MODELLI_GUIDA.cubo };
+export function setModelloGuida(k) {
+  if (!MODELLI_GUIDA[k]) k = 'cubo';
+  for (const c of Object.keys(MODELLO)) delete MODELLO[c];   // niente campi rimasti dal modello di prima (es. escSoglia)
+  Object.assign(MODELLO, { k }, MODELLI_GUIDA[k]);
+}
 
 /** angolo di sterzo massimo (rad) in funzione della velocità */
 export function maxSteer(v) {
@@ -74,12 +134,12 @@ export class Car {
     this.track = track;
     this.id = id;
     this.L = spec.a + spec.b;
-    this.Iz = spec.mass * 1.55;
-    this.halfW = 1.0;
-    this.halfL = 2.3;
+    this.Iz = spec.mass * (spec.iz || 1.55);
+    this.halfW = spec.halfW || 1.0;   // pacchetto: larghezza per auto (Fast 74 più larga)
+    this.halfL = spec.halfL || 2.3;
+    this.aeroAnt = spec.aeroAnt ?? 0.5;   // fase 0: quota anteriore del carico aerodinamico (era 50/50 fisso)
     this.reset(0, 0);
     this.impacts = [];
-    this._bc = {};
     this.damage = 0; // 0..1 (perdita di velocità di punta piccola)
   }
 
@@ -144,7 +204,8 @@ export class Car {
       const dw = p.d + ox * tnx + oz * tnz;
       const ad = Math.abs(dw), hw = p.w / 2;
       const E = dw >= 0 ? tr.R : tr.L;
-      let type = ad <= hw ? SURF.ROAD : ad <= hw + E.kerb[p.i] ? SURF.KERB : E.run[p.i];
+      // libero (17-11-2026): giro libero su una mappa, la superficie si legge sotto la ruota (MappaLibera)
+      let type = tr.libero ? tr.superficieIn(this.x + ox, this.z + oz) : ad <= hw ? SURF.ROAD : ad <= hw + E.kerb[p.i] ? SURF.KERB : E.run[p.i];
       this.surfaces[k] = type;
       const ph = SURF_PHYS[type];
       let mu = ph.mu;
@@ -162,15 +223,20 @@ export class Car {
     // ---- quota / salti
     const gy = tr.groundY(p);
     const along = c * tr.tx[p.i] + s * tr.tz[p.i];
-    const slopeH = tr.slope[p.i] * along;
+    let slopeH = tr.slope[p.i] * along, latoH = 0;
+    if (tr.libero) { const g = tr.pendenzaIn(this.x, this.z, this._pend || (this._pend = {})); slopeH = g.x * c + g.z * s; latoH = -g.x * s + g.z * c; }   // libero: pendenza del terreno
     const vyTrack = slopeH * this.vLong;
     this.landing = 0;
+    let fondo = 0;
     if (this.air === 0) {
       // il terreno "scende" più in fretta della gravità → decollo (dossi, Cavatappi)
       if (vyTrack - this.vy < -G * dt * 1.2 && v > 22) {
         this.air = dt;
         this.y += this.vy * dt;
       } else {
+        // 21-11: compressione (il terreno spinge l'auto in su più di 1,8 g in velocità): il fondo tocca l'asfalto
+        const su = (vyTrack - this.vy) / dt;
+        if (v > 25 && su > 1.8 * G) fondo = Math.min(1, (su / G - 1.8) / 1.5 + 0.25);
         this.y = gy;
         this.vy = vyTrack;
       }
@@ -180,11 +246,14 @@ export class Car {
       this.air += dt;
       if (this.y <= gy) {
         this.landing = Math.max(0, vyTrack - this.vy);
+        if (this.landing > 1.6) fondo = Math.min(1, (this.landing - 1.6) / 2 + 0.3);   // atterraggio pesante: il fondo striscia
         this.y = gy;
         this.vy = vyTrack;
         this.air = 0;
       }
     }
+    // fondo che tocca (0-1): scintille dal diffusore (gfx) e strisciata; si spegne in ~0,15 s
+    this.fondo = Math.max(fondo, (this.fondo || 0) - dt * 6);
     const inAir = this.air > 0;
 
     // ---- comandi
@@ -205,8 +274,8 @@ export class Car {
     if ((arcade && v > 12) || (sim && inp.assist && v > 8)) {
       // in velocità il tasto gira le ruote quanto le gomme possono reggere (più un margine per sentire il limite),
       // non di più: altrimenti ogni colpo di sterzo diventa una sbandata e al rilascio l'auto fa il pendolo.
-      // In realistica (solo tastiera) si ferma poco oltre l'angolo di massima aderenza: con un tasto non si può dosare,
-      // e a fondo le gomme anteriori andavano oltre il limite (1,05 g invece di 1,5 a 60 km/h)
+      // In realistica (solo tastiera, da Cubo Corse) si ferma poco oltre l'angolo di massima aderenza: con un tasto non si
+      // può dosare, e a fondo le gomme anteriori andavano oltre il limite (1,05 g invece di 1,5 a 60 km/h)
       const aMax = sp.mu * (G + (sp.df * v * v) / m);
       dmax = Math.min(dmax, (this.L * aMax) / (v * v) + (sim ? STEER_MARGIN_SIM : STEER_MARGIN));
     }
@@ -237,8 +306,8 @@ export class Car {
     const Lw = this.L;
     const transfer = (m * this.ax * (sim ? 0.42 : 0.18)) / Lw;
     const kMuso = this.dannoOn ? 1 - 0.6 * this.dmg.muso : 1, kAla = this.dannoOn ? 1 - 0.7 * this.dmg.alettone : 1;
-    const FzF = inAir ? 0 : Math.max(200, (m * G * sp.b) / Lw + down * 0.5 * kMuso - transfer);
-    const FzR = inAir ? 0 : Math.max(200, (m * G * sp.a) / Lw + down * 0.5 * kAla + transfer);
+    const FzF = inAir ? 0 : Math.max(200, (m * G * sp.b) / Lw + down * this.aeroAnt * kMuso - transfer);
+    const FzR = inAir ? 0 : Math.max(200, (m * G * sp.a) / Lw + down * (1 - this.aeroAnt) * kAla + transfer);
     const mu = sp.mu;
 
     // ---- motore e cambio
@@ -329,9 +398,11 @@ export class Car {
       const rk = (this.vLong * Math.tan(delta)) / Lw;
       const ex = this.r - rk;
       const tol = 0.12 + (this.handbrake ? 1.5 : 0) + (inp.esc === false || sim || (arcade && !AIUTI.esc) ? 9 : 0);
-      // solo contro il sovrasterzo (l'auto gira più di quanto chiede lo sterzo, o al contrario): prima interveniva anche
-      // nel sottosterzo, aggiungendo rotazione oltre la tenuta delle gomme → sbandata e pendolo al rilascio
-      if (Math.abs(ex) > tol && Math.sign(ex) === Math.sign(this.r)) this.r -= (ex - Math.sign(ex) * tol) * Math.min(1, dt * 6);
+      // modello «precedente»: corregge in entrambe le direzioni (anche nel sottosterzo aggiunge rotazione);
+      // modello «cubo»: solo contro il sovrasterzo (l'auto gira più di quanto chiede lo sterzo)
+      // fase 0: il modello è dell'auto (l'IA usa quello del profilo della pista, il giocatore quello del menu)
+      const MG = this.modelloGuida || MODELLO;
+      if (Math.abs(ex) > tol && (!MG.escSoloSovrasterzo || v < (MG.escSoglia || 0) || Math.sign(ex) === Math.sign(this.r))) this.r -= (ex - Math.sign(ex) * tol) * Math.min(1, dt * 6);
     }
     // arcade: la sbandata laterale si smorza un po' (auto più composta, niente pendolo)
     if (arcade && !inAir && !this.handbrake && v > 10) this.vLat *= 1 - Math.min(0.05, dt * LAT_DAMP);
@@ -343,7 +414,8 @@ export class Car {
     }
     if (Math.abs(this.vLong) < 0.3 && thr < 0.05 && brk > 0.05) this.vLong *= 0.9;
 
-    // ---- integrazione posizione
+    // ---- integrazione posizione (posa di prima per gli urti con le barriere vere: lato da cui si arriva)
+    this._x0 = this.x; this._z0 = this.z; this._yaw0 = this.yaw;
     const vx = this.vLong * c - this.vLat * s;
     const vz = this.vLong * s + this.vLat * c;
     this.x += vx * dt;
@@ -362,21 +434,21 @@ export class Car {
     this.pitch += (tgtPitch - this.pitch) * Math.min(1, dt * 10);
     this.roll += (tgtRoll - this.roll) * Math.min(1, dt * 8);
     // inclinazione trasversale della strada vista dall'auto (rad, >0 = lato destro più alto)
-    this.bankRoll = Math.abs(p.d) < p.w / 2 ? Math.atan(Math.tan(p.bank)) * along : 0;
+    this.bankRoll = tr.libero ? Math.atan(latoH) : Math.abs(p.d) < p.w / 2 ? Math.atan(Math.tan(p.bank)) * along : 0;
     this.slopeH = slopeH;
   }
 
   /**
-   * Urti con le barriere, come corpo rigido: otto punti della sagoma (spigoli e metà dei lati) contro le polilinee
-   * delle barriere, più gli spigoli di barriera che sporgono verso la pista contro il rettangolo dell'auto.
-   * Ogni contatto dà un impulso nel punto toccato (rimbalzo e attrito secondo il tipo di barriera), quindi un urto
-   * di spigolo fa girare l'auto, un frontale la ferma, una strisciata la rallenta. Nessun varco: si controlla la
-   * geometria vera, non la distanza dal centro pista.
+   * Barriere vere (pacchetto, 13-11-2026), come in Cubo Corse: otto punti della sagoma (spigoli e metà dei lati) contro
+   * i corpi delle barriere, più gli spigoli delle barriere (estremi e angoli) contro il rettangolo dell'auto. Ogni
+   * contatto dà un impulso nel punto toccato (rimbalzo e attrito secondo il tipo), quindi un urto di spigolo fa girare
+   * l'auto, un frontale la ferma, una strisciata la rallenta. Dopo, la vecchia distanza dal centro resta solo come rete
+   * di sicurezza (30 m oltre il bordo, Track.barrier).
    */
-  _barriers() {
-    const tr = this.track;
-    if (!tr.barSeg) return this._islandOnly();
-    const hl = this.halfL, hw = this.halfW;
+  _barriereVere() {
+    const tr = this.track, hl = this.halfL, hw = this.halfW;
+    if (this._x0 === undefined || Math.hypot(this.x - this._x0, this.z - this._z0) > 3) { this._x0 = this.x; this._z0 = this.z; this._yaw0 = this.yaw; }   // primo passo o auto rimessa in pista
+    const c0 = Math.cos(this._yaw0), s0 = Math.sin(this._yaw0);
     let forte = null, tocco = false;
     for (let iter = 0; iter < 3; iter++) {
       const cy = Math.cos(this.yaw), sy = Math.sin(this.yaw);
@@ -384,23 +456,24 @@ export class Car {
       for (let k = 0; k < 8; k++) {
         const lx = SAGOMA[k * 2] * hl, lz = SAGOMA[k * 2 + 1] * hw;
         const px = this.x + lx * cy - lz * sy, pz = this.z + lx * sy + lz * cy;
-        const c = tr.barrierContact(px, pz, this.y, this._bc);
+        const ox = this._x0 + lx * c0 - lz * s0, oz = this._z0 + lx * s0 + lz * c0;
+        const c = tr.contattoSolido(px, pz, ox, oz, this._x0, this._z0, this.y, this._bc || (this._bc = {}));
         if (!c) continue;
         n++;
         const vn = this._urto(px, pz, c.nx, c.nz, c.depth, c.type);
         if (vn > 0 && (!forte || vn > forte.speed)) forte = { speed: vn, x: px, z: pz, nx: -c.nx, nz: -c.nz };
       }
-      for (const k of tr.spigoliVicini(this.x, this.z)) {
-        const sp = tr.barSpigoli[k];
+      for (const k of tr.spigoliSolidi(this.x, this.z)) {
+        const sp = tr.solSpigoli[k];
         if (Math.abs(sp.y - this.y) > 3) continue;
         const dx = sp.x - this.x, dz = sp.z - this.z;
         const lx = dx * cy + dz * sy, lz = -dx * sy + dz * cy;
-        const ex = hl - Math.abs(lx), ez = hw - Math.abs(lz);
+        const ex = hl + sp.r - Math.abs(lx), ez = hw + sp.r - Math.abs(lz);
         if (ex <= 0 || ez <= 0) continue;
         n++;
         // l'auto si sposta lungo la faccia meno penetrata, lontano dallo spigolo
         let nx, nz, dep;
-        if (ez < ex) { const g = -Math.sign(lz); nx = -sy * g; nz = cy * g; dep = ez; } else { const g = -Math.sign(lx); nx = cy * g; nz = sy * g; dep = ex; }
+        if (ez < ex) { const g = -Math.sign(lz || 1); nx = -sy * g; nz = cy * g; dep = ez; } else { const g = -Math.sign(lx || 1); nx = cy * g; nz = sy * g; dep = ex; }
         const vn = this._urto(sp.x, sp.z, nx, nz, dep, sp.type);
         if (vn > 0 && (!forte || vn > forte.speed)) forte = { speed: vn, x: sp.x, z: sp.z, nx: -nx, nz: -nz };
       }
@@ -409,11 +482,10 @@ export class Car {
     }
     if (forte && forte.speed > 1.2) this.impacts.push({ type: 'muro', car: this, speed: forte.speed, x: forte.x, z: forte.z, y: this.y + 0.5, nx: forte.nx, nz: forte.nz, scrape: forte.speed < 4 });
     if (tocco && this.speed > 5) this.scraping = 0.15;
-    this._islandOnly();
   }
 
   /**
-   * Impulso di contatto nel punto (px, pz) con normale (nx, nz) verso la pista e compenetrazione dep.
+   * Impulso di contatto nel punto (px, pz) con normale (nx, nz) verso dove spingere e compenetrazione dep (Cubo Corse).
    * Ritorna la velocità d'avvicinamento del punto (m/s, 0 se si stava già staccando).
    */
   _urto(px, pz, nx, nz, dep, type) {
@@ -438,13 +510,50 @@ export class Car {
     return -vn;
   }
 
-  _islandOnly() {
+  _barriers() {
+    if (this.track.solSeg) this._barriereVere();
     const tr = this.track, p = this.track.project(this.x, this.z, this.hint, this.proj);
     const rel = this.yaw - Math.atan2(tr.tz[p.i], tr.tx[p.i]);
     const half = this.halfW * Math.abs(Math.cos(rel)) + this.halfL * Math.abs(Math.sin(rel));
-    // muretto della corsia box: isola solida fra pista e corsia (si urta da entrambi i lati)
+    for (const side of [1, -1]) {
+      const bd = tr.barrier(p, side);
+      const pen = side * p.d + half - bd;
+      if (pen > 0) {
+        const nx = tr.nx[p.i] * side, nz = tr.nz[p.i] * side; // normale verso la barriera
+        this.x -= nx * pen;
+        this.z -= nz * pen;
+        const vx = this.vx, vz = this.vz;
+        const vn = vx * nx + vz * nz;
+        if (vn > 0) {
+          // rimbalzo per tipo di barriera: il muro restituisce poco, guardrail e reti si deformano, il TecPro assorbe
+          const bt = (side > 0 ? tr.R : tr.L).bar[p.i];
+          const e = bt === BAR.WALL ? 0.08 : bt === BAR.TECPRO ? 0 : 0.04;
+          let nvx = vx - (1 + e) * vn * nx, nvz = vz - (1 + e) * vn * nz;
+          // attrito lungo il muro
+          const fr = Math.max(0.55, 1 - vn * 0.04);
+          const tvx = nvx - (nvx * nx + nvz * nz) * nx, tvz = nvz - (nvx * nx + nvz * nz) * nz;
+          nvx = tvx * fr + (nvx - tvx); nvz = tvz * fr + (nvz - tvz);
+          this.setWorldVel(nvx, nvz);
+          // ruota l'auto verso il parallelo al muro
+          const tx = tr.tx[p.i], tz = tr.tz[p.i];
+          const fwdT = Math.cos(this.yaw) * tx + Math.sin(this.yaw) * tz;
+          const relN = Math.cos(this.yaw) * nx + Math.sin(this.yaw) * nz;
+          this.r -= Math.sign(fwdT || 1) * relN * Math.min(1.0, vn * 0.04);
+          // il contatto col muro assorbe anche parte della rotazione già presente
+          this.r *= 1 - Math.min(0.25, vn * 0.02);
+          if (vn > 1.2) {
+            const hx = this.x + nx * half, hz = this.z + nz * half;
+            this.impacts.push({ type: 'muro', car: this, speed: vn, x: hx, z: hz, y: this.y + 0.5, nx, nz, scrape: vn < 4 });
+          }
+        }
+        // strisciata
+        if (this.speed > 5) this.scraping = 0.15;
+      }
+    }
+    // muretto della corsia box: isola solida fra pista e corsia (si urta da entrambi i lati). Con le barriere vere il
+    // muretto è già fra i corpi solidi (linee muretto_box del pacchetto)
     const E = p.d >= 0 ? tr.R : tr.L;
-    if (E.isl0 && E.isl0[p.i] > 0) {
+    if (!tr.solSeg && E.isl0 && E.isl0[p.i] > 0) {
       const side = p.d >= 0 ? 1 : -1, ad = Math.abs(p.d), a = E.isl0[p.i], b = E.isl1[p.i];
       if (ad + half > a && ad - half < b) {
         const versoPista = ad < (a + b) / 2;           // da che parte del muretto sta l'auto

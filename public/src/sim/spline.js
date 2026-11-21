@@ -1,3 +1,4 @@
+// Copiato da Cubo Corse (workspace/projects/cubo-corse/src/sim) il 04-11-2026; modifiche segnate "pacchetto".
 // Spline Catmull-Rom centripeta chiusa + ricampionamento a passo costante.
 // Punti di controllo: {x, y, z, w?, bank?}  (x = est, z = sud, y = quota; metri)
 

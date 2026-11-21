@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Cubo Corse</title>
-  <meta name="description" content="Cubo Corse: gioco di corse GT in voxel nel browser, con Monza 1:1. Un progetto di Gabriele Salvi." />
+  <meta name="description" content="Cubo Corse: gioco di corse GT nel browser, con Monza 1:1 in voxel e il circuito cittadino di Roncadelle. Un progetto di Gabriele Salvi." />
   <link rel="icon" href="favicon.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="fonts/fonts.css" />
   <link rel="stylesheet" href="style.css" />
@@ -28,19 +28,31 @@
   <div id="menu" class="screen">
     <header>
       <div class="logo">CUBO<span>CORSE</span></div>
-      <div class="tag">GT a voxel</div>
+      <div class="tag">GT a voxel e circuiti di città</div>
+      <a id="astudio" class="link-viewer hidden" target="_blank" rel="noopener" title="Il circuito nel visualizzatore di Circuit Studio (solo da Tailscale)">Apri nello Studio</a>
     </header>
     <section class="col mpista">
       <h3>Circuito</h3>
-      <div id="tracks" class="cards"></div>
+      <div id="tracks" class="piste"></div>
+      <div id="mcirc" class="mcirc"></div>
+      <div class="row solo-pacchetto"><label title="A = strade vere com'erano; B = allargata con criterio (barriere, vie di fuga)">Versione</label><div class="seg" id="versione"></div></div>
+      <div class="row solo-pacchetto"><label title="Dove potrebbero stare tribune e pubblico (il circuito non cambia)">Spalti e pubblico</label><div class="seg" id="pubblico"></div></div>
       <h3>Record</h3>
       <div id="mrecord" class="mrecord"></div>
       <button data-act="storico" class="link">Storico delle gare</button>
     </section>
     <section class="col mauto">
       <h3>Auto e livrea</h3>
-      <div id="cars" class="cars"></div>
+      <div class="vetrina">
+        <canvas id="vetrina" title="Trascina per girare l'auto"></canvas>
+        <button class="freccia sx" id="autoprec" aria-label="Auto precedente">‹</button>
+        <button class="freccia dx" id="autosucc" aria-label="Auto successiva">›</button>
+        <div id="mauto" class="mauto-nome"></div>
+      </div>
+      <div id="mstat" class="mstat"></div>
+      <div id="cars" class="scelta-auto"></div>
       <div id="liveries" class="swatches"></div>
+      <div class="row"><label title="Come si disegnano Astore, Calabrone e Airone (le auto di Circuit Studio)">Modelli GT</label><div class="seg" id="stileAuto"></div></div>
     </section>
     <section class="col mimp">
       <h3>Sessione</h3>
@@ -59,7 +71,8 @@
         </details>
         <details class="tendina" data-t="guida">
           <summary><span>Guida</span><small class="riass"></small></summary>
-          <div class="row"><label>Fisica</label><div class="seg" id="fisica"></div></div>
+          <div class="row"><label title="Agile: l'ESC aiuta anche a far girare l'auto nelle curve lente. Composta: solo contro il sovrasterzo">Guida</label><div class="seg" id="guida"></div></div>
+          <div class="row"><label title="Quanto oltre la tenuta girano le ruote con un colpo di tasto; ogni pista ricorda la sua scelta">Sterzo (tastiera)</label><div class="seg" id="sterzo"></div></div>
           <div class="row"><label>Pedali (tastiera)</label><div class="seg" id="pedali"></div></div>
           <div class="row"><label>Traiettoria</label><div class="seg" id="linea"></div></div>
         </details>
@@ -81,10 +94,11 @@
           </div>
         </details>
       </div>
-      <button id="go" class="go">VIA!</button>
+      <button id="go" class="go"><span class="go-testo">VIA!</span><i class="go-barra"></i></button>
+      <div id="mstato" class="mstato"></div>
     </section>
     <footer>
-      <div id="credits">Monza: tracciato © OpenStreetMap contributors (ODbL) · quote EU-DEM 25 m (Copernicus) via OpenTopoData · three.js (MIT)</div>
+      <div id="credits">Monza: tracciato © OpenStreetMap contributors (ODbL) · quote EU-DEM 25 m (Copernicus) via OpenTopoData · Roncadelle (Circuit Studio): DBT Regione Lombardia 2009, quote LiDAR Ministero dell'Ambiente e della Sicurezza Energetica – Piano Straordinario di Telerilevamento Ambientale (CC BY 4.0), © OpenStreetMap contributors (ODbL) · three.js (MIT)</div>
     </footer>
   </div>
 
@@ -100,6 +114,7 @@
         <div id="hpenrow" class="hidden"><label>Penalità</label><b id="hpen">+0 s</b></div>
         <div id="hdeltarow" class="hidden"><label>Ghost</label><b id="hdelta">—</b></div>
       </div>
+      <div id="hinval" class="hidden">⚠ Giro non valido</div>
     </div>
     <div class="tc"><div id="hcorner"></div><div id="hcrono" class="crono hidden"></div><div id="hmsg"></div></div>
     <div class="hdx">
@@ -130,6 +145,7 @@
     </div>
     <canvas id="minimap" width="240" height="240" class="bl"></canvas>
     <div class="br">
+      <div id="hlim" class="limitatore">PIT · LIMITATORE 60</div>
       <div class="rev"><i id="hrev"></i><em></em></div>
       <div id="hscia" class="scia"><span>SCIA</span><i><em></em></i></div>
       <div class="spd"><b id="hspd">0</b><small>km/h</small></div>
@@ -185,10 +201,10 @@
       <h3>Modalità foto</h3>
       <p class="hint">Trascina per ruotare · rotella per zoom · tasto destro per spostare</p>
       <label>Obiettivo (FOV) <input type="range" id="pfov" min="10" max="90" value="45" /></label>
-      <label>Messa a fuoco <input type="range" id="pfocus" min="1" max="80" value="8" /></label>
-      <label>Sfocatura <input type="range" id="paper" min="0" max="100" value="35" /></label>
+      <label class="solo-voxel">Messa a fuoco <input type="range" id="pfocus" min="1" max="80" value="8" /></label>
+      <label class="solo-voxel">Sfocatura <input type="range" id="paper" min="0" max="100" value="35" /></label>
       <label>Esposizione <input type="range" id="pexp" min="40" max="200" value="100" /></label>
-      <label>Filtro <select id="pfilter"></select></label>
+      <label class="solo-voxel">Filtro <select id="pfilter"></select></label>
       <label class="check"><input type="checkbox" id="phud" checked /> Nascondi auto avversarie</label>
       <button id="psave" class="go">Salva foto (PNG)</button>
       <button id="pexit">Torna in gara (P)</button>

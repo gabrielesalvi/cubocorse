@@ -31,6 +31,10 @@ const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
 const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
 const finito = (v) => typeof v === 'number' && Number.isFinite(v);
 const caso = (a, b) => a + Math.random() * (b - a);
+/** curva tanh per il WaveShaper (k = quanto satura) */
+function curvaSaturazione(k) { const n = 1024, c = new Float32Array(n); for (let i = 0; i < n; i++) { const x = (i / (n - 1)) * 2 - 1; c[i] = Math.tanh(k * x) / Math.tanh(k); } return c; }
+/** una delle fonti [x, y, z, peso], a caso in proporzione al peso; null se non ce ne sono */
+function scegliFonte(F) { if (!F?.length) return null; let tot = 0; for (const f of F) tot += f[3]; let r = Math.random() * tot; for (const f of F) { r -= f[3]; if (r <= 0) return f; } return F[F.length - 1]; }
 const nota = (midi) => 440 * Math.pow(2, (midi - 69) / 12);
 
 // ---------------------------------------------------------------------------
@@ -58,8 +62,17 @@ const FAMIGLIE = {
     arm: [0.05, 1.0, 0.04, 0.78, 0.04, 0.58, 0.03, 0.42, 0.02, 0.32, 0.02, 0.24, 0.01, 0.17, 0.01, 0.12],
     am: 0.07, lp: 1.6, q: 5.5, drive: 0.85, turbo: false, ruvido: 0.6, aspira: 1.4, corpo: 0.6,
   },
+  // boxer 6 aspirato (posteriore, alla 911): ordini interi forti e un po' di mezzi ordini, urlo metallico, niente turbo
+  b6: {
+    nome: 'boxer 6 aspirato',
+    saw: 0.48, sq: 0.30, sqRapp: 1, sub: 0.18, car: 0.58,
+    arm: [0.30, 1.0, 0.28, 0.82, 0.22, 0.62, 0.18, 0.46, 0.12, 0.34, 0.08, 0.24, 0.05, 0.16, 0.03, 0.10],
+    am: 0.14, lp: 1.35, q: 4.8, drive: 1.1, turbo: false, ruvido: 0.85, aspira: 1.3, corpo: 0.8,
+  },
 };
-function chiaveFamiglia(cyl) {
+function chiaveFamiglia(cyl, fam) {
+  if (fam && FAMIGLIE[fam]) return fam;                 // famiglia esplicita (es. 'b6', boxer 6 aspirato)
+  if (typeof cyl === 'string' && FAMIGLIE[cyl]) return cyl;
   const c = num(cyl, 8);
   if (c <= 6) return 6;
   if (c >= 10) return 12;
@@ -372,8 +385,8 @@ export class AudioEngine {
     p.maxDistance = 10000;
     return p;
   }
-  _onda(cyl) {
-    const k = chiaveFamiglia(cyl);
+  _onda(cyl, fam) {
+    const k = chiaveFamiglia(cyl, fam);
     if (!this._onde[k]) {
       const arm = FAMIGLIE[k].arm;
       const n = arm.length + 1;
@@ -521,11 +534,11 @@ export class AudioEngine {
     this._impostaGrinta(0.7);
   }
 
-  _impostaFamiglia(cyl, subito) {
+  _impostaFamiglia(cyl, subito, fam = null) {
     const M = this._mot;
-    const k = chiaveFamiglia(cyl);
+    const k = chiaveFamiglia(cyl, fam);
     const F = FAMIGLIE[k];
-    M.cyl = cyl; M.fam = F;
+    M.cyl = cyl; M.fam = F; M.famK = fam;
     const c = clamp(num(cyl, 8), 2, 16);
     const imposta = subito ? (p, v) => this._pSubito(p, v) : (p, v) => this._p(p, v, 0.05);
     imposta(M.kSq.gain, F.sqRapp);
@@ -540,8 +553,8 @@ export class AudioEngine {
 
   _aggiornaMotore(dt, t, p, st) {
     const M = this._mot, m = this._m;
-    const cyl = num(p.cyl, 8);
-    if (cyl !== M.cyl) this._impostaFamiglia(cyl, false);
+    const cyl = num(p.cyl, 8), fam = p.fam || null;
+    if (cyl !== M.cyl || fam !== (M.famK ?? null)) this._impostaFamiglia(cyl, false, fam);
     const F = M.fam;
     const voce = p.voce || {};
     const base = clamp(num(voce.base, 0.5), 0, 1);
@@ -847,6 +860,22 @@ export class AudioEngine {
     A.vociBP = this._f('bandpass', 1800, 1.5); A.vociG = this._g(0);
     rosa2.connect(A.follaBP); A.follaBP.connect(A.follaG); A.follaG.connect(this._busAmb);
     rosa2.connect(A.vociBP); A.vociBP.connect(A.vociG); A.vociG.connect(this._busAmb);
+    // rev. 16 (riferimento di Gabriele, assets/sounds/f1_crowd.mp3: boato di tante voci «aaah», 80% dell'energia fra
+    // 500 e 1000 Hz, tante componenti che cambiano altezza, onde di 2-3 s): dieci voci a dente di sega con l'altezza che
+    // deriva piano, dentro le formanti della A (750 e 1150 Hz), più il rumore rosa nella stessa banda (follaBP)
+    A.boatoF1 = this._f('bandpass', 760, 2.2); A.boatoF2 = this._f('bandpass', 1180, 3); A.boatoF2g = this._g(0.3);
+    A.boatoLP = this._f('lowpass', 1900, 0.5); A.boatoHP = this._f('highpass', 450, 0.7); A.boatoG = this._g(0);
+    A.boatoF1.connect(A.boatoLP); A.boatoF2.connect(A.boatoF2g); A.boatoF2g.connect(A.boatoLP); A.boatoLP.connect(A.boatoHP); A.boatoHP.connect(A.boatoG); A.boatoG.connect(this._busAmb);
+    // il rumore della folla: niente sotto i 450 Hz (il riferimento non ne ha), poco sopra i 1000
+    A.follaHP = this._f('highpass', 450, 0.7); A.follaLP2 = this._f('lowpass', 1400, 0.5);
+    A.follaBP.disconnect(); A.follaBP.connect(A.follaHP); A.follaHP.connect(A.follaLP2); A.follaLP2.connect(A.follaG);
+    A.voci = [];
+    for (let i = 0; i < 10; i++) {
+      const f0 = (i % 3 === 0 ? caso(340, 480) : caso(220, 330));      // grida: voci acute e gravi
+      const o = this._avvia(this._o('sawtooth', f0)), g = this._g(0.1);
+      o.connect(g); g.connect(A.boatoF1); g.connect(A.boatoF2);
+      A.voci.push({ o, g, f0, t: Math.random() * 2 });
+    }
 
     // pioggia: fruscio passa-alto + rombo grave + gocce stereo
     A.pioggiaHP = this._f('highpass', 2800, 0);
@@ -879,13 +908,35 @@ export class AudioEngine {
     // folla: ondate lente + picchi di entusiasmo
     a.onda = clamp(a.onda * 0.995 + (Math.random() - 0.5) * dt * 1.5, -1, 1);
     const smorza = (cockpit ? 0.6 : 1) * (1 - 0.85 * tunnel);
-    this._p(A.follaG.gain, (crowd * (0.5 + 0.18 * a.onda) + cheer * 0.6) * smorza, 0.15);
-    this._p(A.follaBP.frequency, 650 + 280 * cheer + 80 * a.onda, 0.2);
-    this._p(A.vociG.gain, (crowd * 0.25 + cheer * 0.4) * smorza, 0.15);
+    const fin = clamp(num(st.finale, 0), 0, 1), kF = 1 + 0.8 * fin;          // rev. 15: ultimo giro più forte
+    // rev. 15 quater: brusio più basso e a ondate (era un ronzio costante che copriva il resto), gli eventi sopra
+    a.onda2 = clamp((a.onda2 || 0) * 0.99 + (Math.random() - 0.5) * dt * 3, -1, 1);
+    const picco = clamp(num(st.picco, 0), 0, 1);                                // ultimo settore dell'ultimo giro
+    const ondata = Math.max(0, 0.55 + 0.45 * a.onda + 0.35 * a.onda2);
+    // rev. 16: il pubblico è soprattutto il boato (voci + rumore nella banda delle voci), a ondate; più forte con
+    // l'entusiasmo (passaggi, ultimo giro, ultimo settore, arrivo)
+    // rev. 17 (Gabriele: «nessuna differenza fra penultimo e ultimo giro»): nell'ultimo giro il boato raddoppia (+6 dB) e c'è
+    // un fondo di entusiasmo anche lontano dagli spalti; nell'ultimo settore cresce ancora
+    const ecc = clamp(cheer + 0.45 * fin + 0.4 * picco, 0, 1.4);
+    const boato = (crowd * (0.55 + 0.45 * ondata) * (1 + 1.0 * fin + 0.6 * picco) + ecc * 0.4) * smorza;
+    this._p(A.follaG.gain, 1.2 * boato, 0.3);
+    this._p(A.follaBP.frequency, 640 + 160 * ondata + 180 * ecc, 0.4);
+    this._p(A.vociG.gain, 0.08 * boato, 0.3);
+    this._p(A.boatoG.gain, 0.8 * boato, 0.3);
+    this._p(A.boatoF1.frequency, 720 + 120 * ecc + 60 * ondata, 0.4);
+    for (const V of A.voci) {                                                     // ogni voce deriva e respira per conto suo
+      V.t -= dt; if (V.t > 0) continue;
+      V.t = caso(0.4, 1.6);
+      this._p(V.o.frequency, V.f0 * (1 + 0.25 * ecc) * caso(0.92, 1.1), caso(0.15, 0.5));
+      this._p(V.g.gain, caso(0.03, 0.14), 0.3);
+    }
+    this._st = st;
+    if (!this._paused && smorza > 0.15) this._tifo(dt, crowd, fin, cheer, st.fonti, smorza);
     if (!this._paused && cheer > 0.1 && smorza > 0.2 && Math.random() < dt * cheer * 7) this._grido(cheer * smorza);
     if (!this._paused && cheer - a.cheerPrev > 0.25 && smorza > 0.2) {          // ondata improvvisa
       const n = 3 + Math.floor(Math.random() * 3);
       for (let i = 0; i < n; i++) this._grido(cheer * smorza, Math.random() * 0.25);
+
     }
     a.cheerPrev = cheer;
 
@@ -903,6 +954,105 @@ export class AudioEngine {
     this._p(this._mandaSfx.gain, 0.07 + 0.4 * tunnel, 0.15);
   }
 
+  // rev. 15 (Circuit Studio): il casino del pubblico vicino. Trombette, fischietti, tamburi, cori con battimani e grida,
+  // tanti quanti ne fa la gente nel raggio (crowd 0-1, dalla guida) e nell'ultimo giro (fin) più fitti e più forti.
+  // Ogni evento parte da una delle zone vicine (fonti = [x, y, z, peso] nel sistema del mondo), scelta in base al peso.
+  _tifo(dt, crowd, fin, cheer, fonti, smorza) {
+    if (crowd < 0.03 && cheer < 0.05) return;
+    // rev. 15 quater (Gabriele: «si sente poco, sembra un ronzio»): eventi più fitti già di base, più forti, trombe che si
+    // rispondono da zone diverse; l'ultimo giro aggiunge (×2) invece di essere l'unico momento in cui si sente
+    // rev. 16 (Gabriele: «troppo, sembra che tutti abbiano una tromba»): il casino vero è il boato; qui solo qualche
+    // accento. Le trombe solo molto vicino al pubblico e solo al picco (ultimo settore dell'ultimo giro), poco sopra i motori
+    const picco = clamp(num(this._st?.picco, 0), 0, 1);
+    const k = (crowd + cheer * 0.5) * (1 + 1.2 * fin), v = smorza * (0.6 + 0.4 * crowd);
+    const dove = () => scegliFonte(fonti);
+    // rev. 17 (Gabriele: «le trombe non si sentono più»): sempre solo al picco e vicino al pubblico, ma appena sopra i motori
+    if (picco > 0 && crowd > 0.4 && Math.random() < dt * 0.9 * crowd) this._trombetta(v * 0.75, dove());
+    if (Math.random() < dt * 0.25 * k) this._fischietto(v * 0.6, dove());
+    if (Math.random() < dt * 0.06 * k) this._tamburi(v * 0.6, dove());
+    if (crowd > 0.3 && Math.random() < dt * 0.05 * k) this._coro(v * 0.7, dove());
+    if (Math.random() < dt * 1.2 * k) this._grido(Math.min(1, k * 0.6) * smorza);
+  }
+  /** uscita di un evento: panner nella zona (con un po' di sparpaglio) o, senza zona, pan stereo a caso */
+  _uscita(pos) {
+    if (pos) {
+      // suoni forti (trombe a gas, tamburi, cori di centinaia di persone): si sentono ben oltre un'auto → attenuazione più dolce
+      const pn = this._pannerEvento(pos[0] + caso(-6, 6), pos[1] + caso(0, 3), pos[2] + caso(-6, 6), this._busAmb);
+      pn.refDistance = 28; pn.rolloffFactor = 0.7;
+      return { nodo: pn, nodi: [pn] };
+    }
+    const s = this._stereo(); if (s.pan) s.pan.value = caso(-0.8, 0.8); s.connect(this._busAmb); return { nodo: s, nodi: [s] };
+  }
+  // tromba da stadio (a gas), rev. 15 quater: due o tre ance stonate fra loro (a volte un accordo), saturate come un ottone,
+  // con la presenza sui 2-3 kHz; colpi brevi o uno lungo, e la bomboletta che cala alla fine
+  _trombetta(v, pos, ritardo = 0) {
+    const t0 = this._ctx.currentTime + ritardo + Math.random() * 0.08;
+    const f = [349, 392, 415, 440, 466][Math.floor(Math.random() * 5)] * caso(0.98, 1.02);
+    const toni = Math.random() < 0.25 ? [1, 1.26] : [1];                                              // a volte due toni
+    const ritmi = [[0.5], [0.13, 0.13, 0.6], [0.2, 0.7], [0.11, 0.11, 0.11, 0.5], [1.1], [0.25, 0.25, 0.25]];
+    const Rt = ritmi[Math.floor(Math.random() * ritmi.length)];
+    const sat = this._ctx.createWaveShaper(); sat.curve = this._curvaOttone ||= curvaSaturazione(1.3); sat.oversample = '2x';
+    const hp = this._f('highpass', 250, 0.7), pres = this._f('peaking', 2400, 1.2), lp = this._f('lowpass', 6000, 0), g = this._g(0), out = this._uscita(pos);
+    pres.gain.value = 3;
+    const osc = [], pre = this._g(0.5 / toni.length);                 // ance → pre (livello prima della saturazione) → sat
+    for (const k of toni) for (const det of [-4, 3]) { const o = this._o(det < 0 ? 'sawtooth' : 'square', f * k); o.detune.value = det + caso(-2, 2); o.connect(pre); osc.push(o); }
+    pre.connect(sat);
+    sat.connect(hp); hp.connect(pres); pres.connect(lp); lp.connect(g); g.connect(out.nodo);
+    let t = t0; const picco = 0.9 * v;
+    for (const d of Rt) { g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(picco, t + 0.012); g.gain.setValueAtTime(picco, t + d - 0.04); g.gain.linearRampToValueAtTime(0, t + d); t += d + 0.08; }
+    const cala = Rt.length === 1 ? 0.93 : 0.97;
+    for (const o of osc) { const f0 = o.frequency.value; o.frequency.setValueAtTime(f0, t0); o.frequency.linearRampToValueAtTime(f0 * cala, t); o.start(t0); o.stop(t + 0.1); }
+    this._usaEGetta([...osc, pre, sat, hp, pres, lp, g, ...out.nodi], t + 0.1);
+  }
+  // rev. 17 (Gabriele: «i fischi sembrano grilli»): fischio con le dita, non il trillo del fischietto. Una sinusoide che
+  // sale e poi cala, vibrato lento e leggero, un filo di soffio; a volte il fischio a due note (sale, poi scende)
+  _fischietto(v, pos) {
+    const t = this._ctx.currentTime + Math.random() * 0.1, f = caso(1700, 2600), dueNote = Math.random() < 0.35, dur = dueNote ? caso(0.7, 1.0) : caso(0.35, 0.8);
+    const o = this._o('sine', f), vib = this._o('sine', caso(5, 7)), vg = this._g(f * 0.012), g = this._g(0), out = this._uscita(pos);
+    vib.connect(vg); vg.connect(o.frequency); o.connect(g); g.connect(out.nodo);
+    if (dueNote) { o.frequency.setValueAtTime(f * 0.8, t); o.frequency.exponentialRampToValueAtTime(f * 1.25, t + dur * 0.35); o.frequency.exponentialRampToValueAtTime(f * 0.7, t + dur); }
+    else { o.frequency.setValueAtTime(f * 0.88, t); o.frequency.exponentialRampToValueAtTime(f * 1.06, t + dur * 0.25); o.frequency.linearRampToValueAtTime(f * 0.97, t + dur); }
+    const picco = 0.13 * v;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(picco, t + 0.04); g.gain.setValueAtTime(picco * 0.9, t + dur - 0.08); g.gain.linearRampToValueAtTime(0, t + dur);
+    const n = this._rumore(this._buf.bianco, t, dur), bp = this._f('bandpass', f, 6), gn = this._g(0);                 // soffio
+    this._inv(gn.gain, t, 0.03, 0.03 * v, dur * 0.5); n.connect(bp); bp.connect(gn); gn.connect(out.nodo);
+    o.start(t); vib.start(t); o.stop(t + dur + 0.05); vib.stop(t + dur + 0.05);
+    this._usaEGetta([o, vib, vg, g, n, bp, gn, ...out.nodi], t + dur + 0.05);
+  }
+  // tamburi: colpi gravi con la nota che cala più la pelle (rumore breve), in un ritmo da curva
+  _tamburi(v, pos) {
+    const t0 = this._ctx.currentTime + 0.05, ritmi = [[0, 0.25, 0.5, 0.62, 0.75], [0, 0.2, 0.4, 0.6, 0.8, 0.9, 1.0], [0, 0.3, 0.45, 0.6], [0, 0.15, 0.3, 0.6, 0.75, 0.9]];
+    const Rt = ritmi[Math.floor(Math.random() * ritmi.length)], out = this._uscita(pos), nodi = [...out.nodi];
+    for (const d of Rt) {
+      const t = t0 + d, o = this._o('sine', 120), g = this._g(0);
+      o.frequency.setValueAtTime(125, t); o.frequency.exponentialRampToValueAtTime(48, t + 0.15);
+      this._inv(g.gain, t, 0.004, 1.5 * v, 0.1); o.connect(g); g.connect(out.nodo); o.start(t); o.stop(t + 0.45);
+      const n = this._rumore(this._buf.bianco, t, 0.08), lp = this._f('lowpass', 900, 0), gn = this._g(0);
+      this._inv(gn.gain, t, 0.002, 0.8 * v, 0.035); n.connect(lp); lp.connect(gn); gn.connect(out.nodo);
+      nodi.push(o, g, n, lp, gn);
+    }
+    this._usaEGetta(nodi, t0 + Rt[Rt.length - 1] + 0.5);
+  }
+  // coro: quattro sillabe cantate da tante voci (denti di sega stonati fra loro dentro due formanti), poi tre battimani
+  _coro(v, pos) {
+    const t0 = this._ctx.currentTime + 0.05, base = caso(190, 240), out = this._uscita(pos), nodi = [...out.nodi];
+    const note = [[0, 1, 0.28], [0.32, 1, 0.28], [0.64, 1.19, 0.28], [0.96, 1, 0.55]];
+    const f1 = this._f('bandpass', 700, 3), f2 = this._f('bandpass', 1150, 4), lp = this._f('lowpass', 2600, 0), g = this._g(0);
+    f1.connect(lp); f2.connect(lp); lp.connect(g); g.connect(out.nodo); nodi.push(f1, f2, lp, g);
+    for (let i = 0; i < 5; i++) {
+      const o = this._o('sawtooth', base); o.detune.value = caso(-35, 35); o.connect(f1); o.connect(f2);
+      for (const [d, k] of note) o.frequency.setValueAtTime(base * k * caso(0.99, 1.01), t0 + d);
+      o.start(t0); o.stop(t0 + 1.6); nodi.push(o);
+    }
+    for (const [d, , dd] of note) { const t = t0 + d; g.gain.setValueAtTime(0.04 * v, t); g.gain.linearRampToValueAtTime(0.6 * v, t + 0.04); g.gain.linearRampToValueAtTime(0.08 * v, t + dd); }
+    g.gain.linearRampToValueAtTime(0, t0 + 1.58);
+    for (const d of [1.28, 1.6, 1.92]) {
+      const t = t0 + d, n = this._rumore(this._buf.bianco, t, 0.07), bp = this._f('bandpass', 1500, 0.8), gn = this._g(0);
+      this._inv(gn.gain, t, 0.003, 0.9 * v, 0.03); n.connect(bp); bp.connect(gn); gn.connect(out.nodo); nodi.push(n, bp, gn);
+    }
+    this._usaEGetta(nodi, t0 + 2.3);
+  }
+
   // Un grido sintetico dalla folla: dente di sega con glissando dentro due formanti.
   _grido(intensita, ritardo = 0) {
     const ctx = this._ctx;
@@ -918,7 +1068,7 @@ export class AudioEngine {
     const g2 = this._g(0.6);
     const lp = this._f('lowpass', 3200, 0);
     const g = this._g(0);
-    const picco = 0.08 * (0.5 + intensita);
+    const picco = 0.14 * (0.5 + intensita);   // rev. 15 quater: grida più presenti
     g.gain.setValueAtTime(0, t);
     g.gain.linearRampToValueAtTime(picco, t + 0.06);
     g.gain.setTargetAtTime(picco * 0.7, t + 0.06, 0.15);
@@ -954,12 +1104,12 @@ export class AudioEngine {
     return v;
   }
 
-  _famigliaVoce(v, cyl) {
-    v.cyl = cyl;
-    const k = chiaveFamiglia(cyl);
+  _famigliaVoce(v, cyl, fam = null) {
+    v.cyl = cyl; v.famK = fam;
+    const k = chiaveFamiglia(cyl, fam);
     v.F = FAMIGLIE[k];
     v.o1.setPeriodicWave(this._onda(k));
-    this._p(v.o2g.gain, k === 12 ? 0.3 : k === 6 ? 0.55 : 0.4, 0.05);
+    this._p(v.o2g.gain, k === 12 ? 0.3 : k === 6 ? 0.55 : k === 'b6' ? 0.45 : 0.4, 0.05);
   }
 
   _aggiornaAvversari(dt, t, cars) {
@@ -986,8 +1136,8 @@ export class AudioEngine {
       this._posPanner(v.pan, c.x, cy, c.z, !v.attiva);
       v.attiva = true;
 
-      const cyl = num(c.cyl, 8);
-      if (cyl !== v.cyl) this._famigliaVoce(v, cyl);
+      const cyl = num(c.cyl, 8), fam = c.fam || null;
+      if (cyl !== v.cyl || fam !== (v.famK ?? null)) this._famigliaVoce(v, cyl, fam);
       const voce = c.voce || {};
       const base = clamp(num(voce.base, 0.5), 0, 1);
       const thr = clamp(num(c.throttle, 0.5), 0, 1);

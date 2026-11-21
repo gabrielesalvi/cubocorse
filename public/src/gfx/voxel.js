@@ -221,12 +221,15 @@ function buildGeometry(perMat) {
 }
 
 // ------------------------------------------------------------------ materiali condivisi
+// 21-11: due serie di materiali (piena e leggera per la qualità Bassa), create quando servono. Prima ce n'era una sola e
+// cambiare qualità voleva dire ricaricare la pagina; ora ogni pista si costruisce in un mondo nuovo e usa la sua serie.
+const SERIE = { pieni: null, leggeri: null };
 let SHARED = null;
 let LEGGERI = false;
 /** grafica bassa: materiali semplici (Lambert, senza riflessi fisici). Va deciso prima di costruire il mondo. */
 export function materialiLeggeri(on) {
-  if (SHARED && !!on !== LEGGERI) throw new Error('materiali già creati');
   LEGGERI = !!on;
+  SHARED = SERIE[LEGGERI ? 'leggeri' : 'pieni'];
 }
 export function usaMaterialiLeggeri() { return LEGGERI; }
 /** Materiali condivisi per i voxel (indice = MAT). Le intensità notturne si regolano con setNight(). */
@@ -239,10 +242,11 @@ export function voxelMaterials() {
   const glass = LEGGERI ? L() : new THREE.MeshPhysicalMaterial({ vertexColors: true, roughness: 0.04, metalness: 0.2, clearcoat: 1, envMapIntensity: 1.6 });
   const light = new THREE.MeshBasicMaterial({ vertexColors: true });
   light.color.setScalar(3.0);
+  const uNight = { value: 0 };
   const night = LEGGERI ? L({ emissive: 0xffffff, emissiveIntensity: 0 }) : new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.4, metalness: 0, emissive: 0xffffff, emissiveIntensity: 0 });
   // emissivo dal colore dei vertici: usa il colore anche come emissivo
   night.onBeforeCompile = (sh) => {
-    sh.uniforms.uNight = SHARED.uNight;
+    sh.uniforms.uNight = uNight;
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', '#include <common>\nuniform float uNight;')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n totalEmissiveRadiance = vColor.rgb * uNight;');
@@ -251,9 +255,10 @@ export function voxelMaterials() {
   const brake = new THREE.MeshBasicMaterial({ vertexColors: true });
   brake.color.setScalar(1.2);
   const foliage = LEGGERI ? L() : new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, metalness: 0 });
-  SHARED = {
+  for (const m of [matte, paint, metal, glass, light, night, rubber, brake, foliage]) m.userData.shared = true;
+  SHARED = SERIE[LEGGERI ? 'leggeri' : 'pieni'] = {
     list: [matte, paint, metal, glass, light, night, rubber, brake, foliage],
-    uNight: { value: 0 },
+    uNight,
   };
   return SHARED;
 }

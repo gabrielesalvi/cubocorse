@@ -1,15 +1,19 @@
-// Ghost del time trial: il giro migliore (valido) per pista e modalità di fisica, salvato nel browser e
-// ripercorso da un'auto trasparente in sincrono col giro del giocatore. Fornisce anche il distacco in tempo reale.
+// Ghost del time trial: il giro migliore (valido) per pista e tipo di comando, salvato nel browser e ripercorso da
+// un'auto trasparente in sincrono col giro del giocatore. Fornisce anche il distacco in tempo reale.
+// Fase 0 (20-11): chiave pista (con la versione) × comando (tastiera | controller), come i record; prima pista × fisica.
+// Un ghost vecchio (v1, arcade) vale per la tastiera finché non ne salvi uno nuovo.
 import * as THREE from 'three';
-import { CarVisual } from './carmodel.js';
+import { creaVisuale } from './auto.js';
 
-const KEY = (pista, fisica) => `cubo-corse-ghost-v1|${pista}|${fisica || 'arcade'}`;
+const KEY = (pista, comando) => `cubo-corse-ghost-v2|${pista}|${comando || 'tastiera'}`;
+const KEY_V1 = (pista) => `cubo-corse-ghost-v1|${pista}|arcade`;
 // canali di un campione: t (s dal via del giro), s (m percorsi nel giro), x, y, z, yaw, beccheggio, rollio, sterzo
 const CANALI = 9, DEC = [3, 2, 2, 2, 2, 3, 3, 3, 3];
 
-export function caricaGhost(pista, fisica) {
+export function caricaGhost(pista, comando) {
   try {
-    const g = JSON.parse(localStorage.getItem(KEY(pista, fisica)) || 'null');
+    let g = JSON.parse(localStorage.getItem(KEY(pista, comando)) || 'null');
+    if (!g && (comando || 'tastiera') === 'tastiera') g = JSON.parse(localStorage.getItem(KEY_V1(pista)) || 'null');
     if (!g || !Array.isArray(g.dati) || g.dati.length < CANALI * 10) return null;
     return g;
   } catch {
@@ -18,12 +22,12 @@ export function caricaGhost(pista, fisica) {
 }
 
 /** salva il giro (campioni [[t,s,x,y,z,yaw,pitch,roll,delta], …]); ritorna l'oggetto salvato, o null se lo spazio non basta */
-export function salvaGhost(pista, fisica, tempo, campioni, info) {
+export function salvaGhost(pista, comando, tempo, campioni, info) {
   const dati = [];
   for (const c of campioni) for (let k = 0; k < CANALI; k++) dati.push(+c[k].toFixed(DEC[k]));
   const g = { tempo, data: new Date().toISOString(), ...info, dati };
   try {
-    localStorage.setItem(KEY(pista, fisica), JSON.stringify(g));
+    localStorage.setItem(KEY(pista, comando), JSON.stringify(g));
     return g;
   } catch {
     return null;
@@ -31,9 +35,9 @@ export function salvaGhost(pista, fisica, tempo, campioni, info) {
 }
 
 export class Ghost {
-  constructor(scene, spec, livery, num) {
+  constructor(scene, spec, livery, num, stile, pbr = false) {
     this.scene = scene;
-    this.vis = new CarVisual(spec, livery, num);
+    this.vis = creaVisuale(spec, livery, num, { numeri: false, stile, pbr });
     // materiali propri, trasparenti (quelli delle auto sono condivisi)
     this.vis.group.traverse((o) => {
       if (!o.isMesh) return;

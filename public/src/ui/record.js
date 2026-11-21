@@ -1,16 +1,37 @@
 // Record e storico, salvati nel browser (localStorage).
-// - Record: i 10 giri migliori per pista e modalità di fisica, con le iniziali (3 lettere) come ai cabinati.
-//   Valgono solo i giri puliti (niente uscite con 4 ruote fuori, niente rimesse in pista).
+// - Record: i 10 giri migliori per pista (con la versione) × modalità (gara | time trial) × tipo di comando (tastiera |
+//   controller), con le iniziali (3 lettere) come ai cabinati. Non per modello di guida, sterzo o fisica (decisione del
+//   17-11, fase 0). Valgono solo i giri puliti (niente uscite con 4 ruote fuori, niente rimesse in pista).
 // - Storico: le ultime 50 gare.
+// Fase 0 (20-11): chiave nuova (v2). I record di prima (v1, pista × fisica, tutti da tastiera) passano in «gara · tastiera».
 
-const KEY = 'cubo-corse-record-v1';
+const KEY = 'cubo-corse-record-v2', KEY_V1 = 'cubo-corse-record-v1';
 const MAX_BOARD = 10, MAX_STORICO = 50;
 const LETTERE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-* ';
 export const MODI = { arcade: 'Arcade', realistica: 'Realistica' };
+export const MODALITA = { gara: 'Gara', tempo: 'Time trial' };
+export const COMANDI = { tastiera: 'Tastiera', controller: 'Controller' };
+/** categoria di un record: modalità e tipo di comando */
+export const categoria = (modo, comando) => `${modo === 'tempo' ? 'tempo' : 'gara'}|${comando === 'controller' ? 'controller' : 'tastiera'}`;
+export const nomeCategoria = (cat) => { const [m, c] = cat.split('|'); return `${MODALITA[m] || m} · ${(COMANDI[c] || c).toLowerCase()}`; };
 
+function migraV1() {
+  try {
+    const v1 = JSON.parse(localStorage.getItem(KEY_V1) || 'null');
+    if (!v1) return null;
+    const boards = {};
+    for (const [k, b] of Object.entries(v1.boards || {})) {
+      const pista = k.split('|')[0], nk = `${pista}|gara|tastiera`;
+      boards[nk] = (boards[nk] || []).concat(b.map((r) => ({ ...r, prima: true }))).sort((a, c) => a.tempo - c.tempo).slice(0, MAX_BOARD);
+    }
+    return { boards, storico: v1.storico || [], ultimoNome: v1.ultimoNome || 'AAA' };
+  } catch { return null; }
+}
 function load() {
   try {
-    const d = JSON.parse(localStorage.getItem(KEY) || '{}');
+    const raw = localStorage.getItem(KEY);
+    if (!raw) { const m = migraV1(); if (m) { save(m); return m; } }
+    const d = JSON.parse(raw || '{}');
     return { boards: d.boards || {}, storico: d.storico || [], ultimoNome: d.ultimoNome || 'AAA' };
   } catch {
     return { boards: {}, storico: [], ultimoNome: 'AAA' };
@@ -19,24 +40,24 @@ function load() {
 function save(d) {
   try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* spazio pieno o storage bloccato: pazienza */ }
 }
-const chiave = (pista, fisica) => `${pista}|${fisica || 'arcade'}`;
+const chiave = (pista, cat) => `${pista}|${cat || 'gara|tastiera'}`;
 
-export function board(pista, fisica) {
-  return load().boards[chiave(pista, fisica)] || [];
+export function board(pista, cat) {
+  return load().boards[chiave(pista, cat)] || [];
 }
 
 /** posizione (0-based) che un giro di `tempo` secondi avrebbe nella classifica, o -1 se non entra */
-export function posizione(pista, fisica, tempo) {
+export function posizione(pista, cat, tempo) {
   if (!Number.isFinite(tempo)) return -1;
-  const b = board(pista, fisica);
+  const b = board(pista, cat);
   const k = b.findIndex((r) => tempo < r.tempo);
   if (k >= 0) return k;
   return b.length < MAX_BOARD ? b.length : -1;
 }
 
-export function aggiungiRecord(pista, fisica, voce) {
+export function aggiungiRecord(pista, cat, voce) {
   const d = load();
-  const k = chiave(pista, fisica);
+  const k = chiave(pista, cat);
   const b = (d.boards[k] || []).concat([voce]).sort((a, c) => a.tempo - c.tempo).slice(0, MAX_BOARD);
   d.boards[k] = b;
   d.ultimoNome = voce.nome;
@@ -77,8 +98,8 @@ export function htmlBoard(b, evidenzia = -1, righe = MAX_BOARD) {
 
 export function htmlStorico(lista, nomiPiste) {
   if (!lista.length) return '<p class="rec-vuoto">Nessuna gara ancora.</p>';
-  return `<table class="rec-tab storico"><tr><th>Data</th><th>Pista</th><th>Fisica</th><th>Giri</th><th>Avversari</th><th>Pos.</th><th>Tempo</th><th>Giro migliore</th><th>Auto</th></tr>${lista.map((g) => `<tr>
-    <td>${esc((g.data || '').replace('T', ' ').slice(0, 16))}</td><td>${esc(nomiPiste[g.pista] || g.pista)}</td><td>${esc(MODI[g.fisica] || g.fisica)}</td>
+  return `<table class="rec-tab storico"><tr><th>Data</th><th>Pista</th><th>Comandi</th><th>Giri</th><th>Avversari</th><th>Pos.</th><th>Tempo</th><th>Giro migliore</th><th>Auto</th></tr>${lista.map((g) => `<tr>
+    <td>${esc((g.data || '').replace('T', ' ').slice(0, 16))}</td><td>${esc(nomiPiste[g.pista] || g.pista)}</td><td>${esc(COMANDI[g.comando] || MODI[g.fisica] || g.fisica || '')}</td>
     <td>${g.giri}</td><td>${esc(g.tipo === 'tempo' ? 'time trial' : g.diff)}</td><td class="r">${g.tipo === 'tempo' ? 'TT' : g.pos === 'RIT' ? 'RIT' : g.pos + '°'}</td><td>${g.tipo === 'tempo' ? '—' : fmt(g.tempo)}${g.pen ? ` <span class="pen">(+${g.pen} s)</span>` : ''}</td>
     <td>${fmt(g.best)}${g.bestValido === false ? ' <span class="pen" title="nessun giro pulito">*</span>' : ''}</td><td>${esc(g.auto)}</td></tr>`).join('')}</table>`;
 }

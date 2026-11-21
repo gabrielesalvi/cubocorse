@@ -1,8 +1,8 @@
 // Menu, HUD, pausa, risultati, foto: tutto DOM.
+// Fase 0 (20-11-2026): un solo menu per le piste di Cubo Corse e di Circuit Studio. Ora, meteo, qualità e filtri
+// dipendono dal mondo che disegna la pista (voxel o pacchetto): li passa main.js.
 import { CARS } from '../sim/car.js';
 import { LIVREE } from '../sim/race.js';
-import { ORE, METEO } from '../gfx/env.js';
-import { QUALITA, FILTRI_NOMI } from '../gfx/renderer.js';
 
 const $ = (id) => document.getElementById(id);
 export const fmt = (t) => {
@@ -12,7 +12,12 @@ export const fmt = (t) => {
 };
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
-export const DEFAULTS = { track: 'monza', car: 0, livery: 0, laps: 3, diff: 'normale', grid: 'ultimo', ora: 'oro', meteo: 'sereno', qual: 'auto', fisica: 'arcade', linea: false, penLimiti: false, penContatti: false, modo: 'gara', ghost: true, nAuto: 10, pedali: 'manuali', danni: 'estetici' };
+export const DEFAULTS = { track: 'monza', car: 0, livery: 0, laps: 3, diff: 'normale', grid: 'ultimo', ora: 'oro', meteo: 'sereno', qual: 'auto', fisica: 'arcade', linea: false, penLimiti: false, penContatti: false, modo: 'gara', ghost: true, nAuto: 10, pedali: 'manuali', danni: 'estetici',
+  // fase 0: modello di guida (Agile = misto, Composta = cubo), sterzo da tastiera per pista (sterzoPista[id] = pronto|dolce,
+  // altrimenti quello della pista), versione dei circuiti di Circuit Studio, pubblico, stile delle auto low-poly
+  guida: 'misto', sterzoPista: {}, versione: 'B', pubblico: true, stileAuto: 'attuale' };
+/** sterzo da tastiera di partenza: dolce sulle piste di Cubo Corse, pronto su quelle di Circuit Studio (decisione del 19-11) */
+export const sterzoPredefinito = (pista) => (pista && pista.mondo === 'pacchetto' ? 'pronto' : 'dolce');
 
 export function loadSettings() {
   try {
@@ -46,43 +51,76 @@ export function setLoading(p, msg) {
   if (msg) $('loadmsg').textContent = msg;
 }
 
-/** menu: tracks = [{id, nome, sottotitolo, outline:[[x,z]...]}] */
-export function buildMenu(settings, tracks, cb) {
-  // circuiti
+/**
+ * menu: tracks = [{id, mondo, nome, sottotitolo, lunghezza, outline:[[x,z]...], versioni?}];
+ * mondi = { voxel: {ORE, METEO, QUALITA, FILTRI, oraPredefinita}, pacchetto: {…} }: ora, meteo, qualità e filtri seguono
+ * il mondo della pista scelta (ora e meteo ricordati per mondo: ora_voxel, meteo_pacchetto…)
+ */
+export function buildMenu(settings, tracks, cb, mondi) {
+  const pista = () => tracks.find((t) => t.id === settings.track) || tracks[0];
+  // circuiti (21-11): elenco compatto diviso per gioco; la pianta grande e i dati della pista scelta sotto (#mcirc).
+  // Scegliere una pista non la carica davanti agli occhi: main.js la prepara dietro il menu.
   const T = $('tracks');
   T.innerHTML = '';
-  for (const t of tracks) {
-    const d = document.createElement('div');
-    d.className = 'card' + (settings.track === t.id ? ' sel' : '');
-    d.innerHTML = `${outlineSVG(t.outline)}<b>${t.nome}</b><small>${t.sottotitolo}<br>${(t.lunghezza / 1000).toFixed(2).replace('.', ',')} km</small>`;
-    d.onclick = () => {
-      settings.track = t.id;
-      T.querySelectorAll('.card').forEach((c) => c.classList.remove('sel'));
-      d.classList.add('sel');
-      cb.change('track');
-    };
-    T.appendChild(d);
+  const km = (m) => `${(m / 1000).toFixed(2).replace('.', ',')} km`;
+  for (const [gruppo, mondoPiste] of [['Cubo Corse', 'voxel'], ['Circuit Studio', 'pacchetto']]) {
+    const lista = tracks.filter((t) => t.mondo === mondoPiste);
+    if (!lista.length) continue;
+    const g = document.createElement('div'); g.className = 'gruppo'; g.textContent = gruppo; T.appendChild(g);
+    for (const t of lista) {
+      const d = document.createElement('button');
+      d.className = 'pista' + (settings.track === t.id ? ' sel' : '');
+      d.dataset.id = t.id;
+      d.innerHTML = `${outlineSVG(t.outline)}<b>${t.nome}</b><small>${km(t.lunghezza)}</small>`;
+      d.onclick = () => {
+        if (settings.track === t.id) return;
+        settings.track = t.id;
+        T.querySelectorAll('.pista').forEach((c) => c.classList.toggle('sel', c === d));
+        aggiornaPista();
+        cb.change('track');
+      };
+      T.appendChild(d);
+    }
   }
-  // auto
+  // scheda della pista scelta; versione e pubblico per i circuiti di Circuit Studio; sterzo da tastiera per pista
+  const aggiornaPista = () => {
+    const t = pista(), pac = t.mondo === 'pacchetto';
+    document.body.classList.toggle('pacchetto', pac);
+    $('mcirc').innerHTML = `${outlineSVG(t.outline)}<div><b>${t.nomeLungo || t.nome}</b><small>${t.sottotitolo}</small><small>${km(t.lunghezza)}</small></div>`;
+    if (pac) seg('versione', t.versioni.map((v) => [v.k, `${v.k} · ${v.nome}`, v.descrizione]), 'versione');
+    atmosfera();
+    const st = settings.sterzoPista[t.id] || sterzoPredefinito(t);
+    seg('sterzo', [['pronto', 'Pronto', 'Margine 0,16: le ruote girano subito un po\' oltre la tenuta (come Circuit Studio)'], ['dolce', 'Dolce', 'Margine 0,06: sterzo più progressivo (come Cubo Corse)']], null, st, (k) => { settings.sterzoPista[t.id] = k; cb.change('sterzo'); });
+  };
+  // auto (21-11): la vetrina al centro, sotto nome, dati e la scelta rapida delle sei auto divise per gioco; frecce ‹ ›
   const C = $('cars');
   C.innerHTML = '';
   const maxP = Math.max(...CARS.map((c) => c.power / c.mass));
-  CARS.forEach((c, i) => {
-    const d = document.createElement('div');
-    d.className = 'carc' + (settings.car === i ? ' sel' : '');
+  const barra = (nome, v) => `<div class="stat">${nome}<i><em style="width:${Math.round(Math.min(1, Math.max(0.2, v)) * 100)}%"></em></i></div>`;
+  const aggiornaAuto = () => {
+    const c = CARS[settings.car] || CARS[0];
     const pw = (c.power / c.mass) / maxP, gr = (c.mu + c.df * 0.25 - 1.8) / 0.25, top = 1 - (c.cd - 0.43) / 0.12;
-    d.innerHTML = `<b>${c.nome}</b><small>${c.tipo} · ${c.cyl} cilindri</small>
-      <div class="stat">Potenza<i><em style="width:${Math.round(pw * 100)}%"></em></i></div>
-      <div class="stat">Aderenza<i><em style="width:${Math.round(Math.min(1, Math.max(0.2, gr)) * 100)}%"></em></i></div>
-      <div class="stat">Velocità<i><em style="width:${Math.round(Math.min(1, Math.max(0.2, top)) * 100)}%"></em></i></div>`;
-    d.onclick = () => {
-      settings.car = i;
-      C.querySelectorAll('.carc').forEach((x) => x.classList.remove('sel'));
-      d.classList.add('sel');
-      cb.change('car');
-    };
-    C.appendChild(d);
-  });
+    $('mauto').innerHTML = `<b>${c.nome}</b><small>${c.ispirata ? `${c.tipo} · ispirata a ${c.ispirata}` : c.tipo} · ${c.cyl} cilindri</small>`;
+    $('mstat').innerHTML = barra('Potenza', pw) + barra('Aderenza', gr) + barra('Velocità', top);
+    C.querySelectorAll('button').forEach((b) => b.classList.toggle('sel', +b.dataset.i === settings.car));
+    $('stileAuto')?.closest('.row')?.classList.toggle('spento', c.modello !== 'lowpoly');
+  };
+  const scegliAuto = (i) => { settings.car = (i + CARS.length) % CARS.length; aggiornaAuto(); cb.change('car'); };
+  for (const [gruppo, modello] of [['Cubo Corse', 'voxel'], ['Circuit Studio', 'lowpoly']]) {
+    const riga = document.createElement('div'); riga.className = 'riga-auto';
+    riga.innerHTML = `<span class="gruppo">${gruppo}</span>`;
+    CARS.forEach((c, i) => {
+      if (c.modello !== modello) return;
+      const b = document.createElement('button'); b.dataset.i = i; b.textContent = c.nome;
+      if (c.ispirata) b.title = `Ispirata a ${c.ispirata} · ${c.motore}`;
+      b.onclick = () => scegliAuto(i);
+      riga.appendChild(b);
+    });
+    C.appendChild(riga);
+  }
+  $('autoprec').onclick = () => scegliAuto(settings.car - 1);
+  $('autosucc').onclick = () => scegliAuto(settings.car + 1);
+  aggiornaAuto();
   const L = $('liveries');
   L.innerHTML = '';
   LIVREE.forEach((l, i) => {
@@ -100,27 +138,41 @@ export function buildMenu(settings, tracks, cb) {
     L.appendChild(d);
   });
   // segmenti
-  const seg = (id, opts, key) => {
+  function seg(id, opts, key, valore, quando) {
     const el = $(id);
+    if (!el) return;
     el.innerHTML = '';
-    for (const [k, label] of opts) {
+    for (const [k, label, title] of opts) {
       const b = document.createElement('button');
       b.textContent = label;
-      if (settings[key] === k) b.classList.add('sel');
+      if (title) b.title = title;
+      if ((key ? settings[key] : valore) === k) b.classList.add('sel');
       b.onclick = () => {
-        settings[key] = k;
+        if (key) settings[key] = k;
         el.querySelectorAll('button').forEach((x) => x.classList.remove('sel'));
         b.classList.add('sel');
-        cb.change(key);
+        if (quando) quando(k); else cb.change(key);
       };
       el.appendChild(b);
     }
-  };
+  }
   seg('diff', [['facile', 'Facili'], ['normale', 'Normali'], ['difficile', 'Difficili']], 'diff');
   seg('grid', [['ultimo', 'Ultimo'], ['caso', 'A caso'], ['pole', 'Pole']], 'grid');
-  seg('ora', Object.entries(ORE).map(([k, v]) => [k, v.nome]), 'ora');
-  seg('meteo', Object.entries(METEO).map(([k, v]) => [k, v.nome]), 'meteo');
-  seg('qual', [['auto', 'Auto'], ...Object.entries(QUALITA).map(([k, v]) => [k, v.nome])], 'qual');
+  seg('guida', [['misto', 'Agile', 'ESC che aiuta anche a far girare l\'auto nelle curve lente (sotto i 130 km/h)'], ['cubo', 'Composta', 'ESC solo contro il sovrasterzo (Cubo Corse)']], 'guida');
+  seg('stileAuto', [['attuale', 'Facce piatte', 'Auto di Circuit Studio: superfici a facce piatte, dettaglio medio'], ['lowpoly', 'Low poly', 'Poche facce, forme essenziali'], ['realistico', 'Realistici', 'Superfici lisce, vernice lucida, vetri e cerchi metallici (più pesanti)']], 'stileAuto');
+  seg('pubblico', [[false, 'No'], [true, 'Sì']], 'pubblico');
+  // atmosfera e grafica del mondo della pista scelta
+  function atmosfera() {
+    const tipo = pista().mondo, M = mondi[tipo];
+    settings.ora = M.ORE[settings['ora_' + tipo]] ? settings['ora_' + tipo] : M.ORE[settings.ora] ? settings.ora : M.oraPredefinita;
+    settings.meteo = M.METEO[settings['meteo_' + tipo]] ? settings['meteo_' + tipo] : M.METEO[settings.meteo] ? settings.meteo : 'sereno';
+    seg('ora', Object.entries(M.ORE).map(([k, v]) => [k, v.nome]), null, settings.ora, (k) => { settings.ora = settings['ora_' + tipo] = k; cb.change('ora'); });
+    seg('meteo', Object.entries(M.METEO).map(([k, v]) => [k, v.nome]), null, settings.meteo, (k) => { settings.meteo = settings['meteo_' + tipo] = k; cb.change('meteo'); });
+    seg('qual', [['auto', 'Auto'], ...Object.entries(M.QUALITA).map(([k, v]) => [k, v.nome])], 'qual');
+    const F = $('pfilter');
+    if (F) F.innerHTML = (M.FILTRI || ['nessuno']).map((f) => `<option>${f}</option>`).join('');
+    document.body.classList.toggle('foto-semplice', !M.FILTRI);
+  }
   seg('fisica', [['arcade', 'Arcade'], ['realistica', 'Realistica']], 'fisica');
   seg('modo', [['gara', 'Gara'], ['tempo', 'Time trial']], 'modo');
   seg('ghost', [[false, 'No'], [true, 'Sì']], 'ghost');
@@ -173,15 +225,13 @@ export function buildMenu(settings, tracks, cb) {
       try { localStorage.setItem('cubo-corse-tendine', JSON.stringify(aperte)); } catch { /* niente */ }
     });
   }
-  riassunti();
   $('menu').addEventListener('click', () => requestAnimationFrame(riassunti));
   $('go').onclick = () => cb.go();
-  // filtri foto
-  const F = $('pfilter');
-  F.innerHTML = FILTRI_NOMI.map((f) => `<option>${f}</option>`).join('');
+  aggiornaPista();
+  riassunti();
 }
 
-function outlineSVG(pts) {
+export function outlineSVG(pts) {
   if (!pts || !pts.length) return '<svg></svg>';
   let minx = Infinity, minz = Infinity, maxx = -Infinity, maxz = -Infinity;
   for (const [x, z] of pts) { minx = Math.min(minx, x); maxx = Math.max(maxx, x); minz = Math.min(minz, z); maxz = Math.max(maxz, z); }
@@ -259,6 +309,14 @@ export class HUD {
     e.cur.textContent = race.started && !player.finished ? fmt(race.time - player.lapStart) : player.finished ? fmt(player.lapTimes.at(-1)) : '0:00.000';
     e.best.textContent = fmt(player.best);
     e.last.textContent = fmt(player.lapTimes.at(-1));
+    // giro invalidato → scritta che resta accanto ai tempi fino a fine giro; l'ultimo giro non valido barrato (Circuit Studio rev. 17)
+    const inval = race.started && !player.finished && player.lap > 0 && player.lapPulito === false;
+    if (inval !== this._inval) { this._inval = inval; $('hinval').classList.toggle('hidden', !inval); e.cur.classList.toggle('nonvalido', inval); }
+    const vu = race._validi?.length ? race._validi.at(-1) === false : false;
+    if (vu !== this._invU) { this._invU = vu; e.last.classList.toggle('nonvalido', vu); e.last.title = vu ? 'giro non valido' : ''; }
+    // limitatore in corsia box (piste di Circuit Studio con pit.limite)
+    const lim = !!player.limitatore;
+    if (lim !== this._lim) { this._lim = lim; $('hlim').classList.toggle('on', lim); }
     // time trial: distacco dal ghost allo stesso punto della pista
     const dg = race.timeTrial ? race.deltaGhost : null;
     if ((dg != null) !== this._dOn) { this._dOn = dg != null; $('hdeltarow').classList.toggle('hidden', !this._dOn); }

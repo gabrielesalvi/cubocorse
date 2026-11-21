@@ -1,8 +1,9 @@
+// Copiato da Cubo Corse (workspace/projects/cubo-corse/src/sim) il 04-11-2026; modifiche segnate "pacchetto".
 // Urti fra auto: ogni auto = 5 cerchi lungo l'asse (fianchi quasi diritti). Impulso con rimbalzo minimo,
 // attrito di strisciamento e rotazione contenuta: le auto si toccano e si strusciano, non schizzano via.
 
 const OFFS = [-1.36, -0.68, 0, 0.68, 1.36];
-const RAD = 0.97;
+const RAD = 0.97;      // raggio dei cerchi per un'auto larga 2 m; pacchetto: scalato con spec.halfW (Fast 74 più larga)
 const E = 0.05;        // rimbalzo (prima 0.2)
 const MU = 0.35;       // attrito fra le carrozzerie
 const SPIN = 0.35;     // quota dell'impulso che diventa rotazione (prima 0.6)
@@ -18,6 +19,7 @@ export function collideCars(cars, impacts) {
       const dx0 = B.x - A.x, dz0 = B.z - A.z;
       if (dx0 * dx0 + dz0 * dz0 > 36) continue;
       if (Math.abs(A.y - B.y) > 2.5) continue;
+      const rr = RAD * ((A.spec.halfW || 1) + (B.spec.halfW || 1));
       const ca = Math.cos(A.yaw), sa = Math.sin(A.yaw), cb = Math.cos(B.yaw), sb = Math.sin(B.yaw);
       let hit = null, best = 0;
       for (const oa of OFFS)
@@ -26,7 +28,7 @@ export function collideCars(cars, impacts) {
           const bx = B.x + cb * ob, bz = B.z + sb * ob;
           const dx = bx - ax, dz = bz - az;
           const d = Math.hypot(dx, dz);
-          const pen = 2 * RAD - d;
+          const pen = rr - d;
           if (pen > best) {
             best = pen;
             hit = { ax, az, bx, bz, nx: d > 1e-4 ? dx / d : 1, nz: d > 1e-4 ? dz / d : 0, oa, ob };

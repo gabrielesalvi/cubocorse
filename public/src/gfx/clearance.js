@@ -80,7 +80,7 @@ export class Clearance {
   floorAt(x, z, pad = 0.5) {
     let y = NaN;
     for (const p of this.hits(x, z)) {
-      if (Math.abs(p.d) > this.tr.barrier(p, p.d >= 0 ? 1 : -1) + pad) continue;
+      if (Math.abs(p.d) > this.tr.barrieraVera(p, p.d >= 0 ? 1 : -1) + pad) continue;
       const s = this.surfaceY(p);
       if (!(y <= s)) y = s;
     }
@@ -90,7 +90,7 @@ export class Clearance {
   /** il segmento verticale [y0,y1] in (x,z) ingombra la pista? */
   blocksPoint(x, y0, y1, z, pad = 0.3) {
     for (const p of this.hits(x, z)) {
-      if (Math.abs(p.d) > this.tr.barrier(p, p.d >= 0 ? 1 : -1) + pad) continue;
+      if (Math.abs(p.d) > this.tr.barrieraVera(p, p.d >= 0 ? 1 : -1) + pad) continue;
       const g = this.tr.groundY(p);
       if (y1 > g + 0.15 && y0 < g + CLEAR_H) return true;
     }

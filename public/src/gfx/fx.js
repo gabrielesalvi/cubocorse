@@ -142,6 +142,28 @@ export class Effects {
     const v = car.speed;
     const cy = Math.cos(car.yaw), sy = Math.sin(car.yaw);
     const rx = car.x - cy * 1.5, rz = car.z - sy * 1.5;
+    if (car.rimossa) return;
+    const hl = car.halfL || 2.3;
+    // 21-11: scintille dal fondo quando tocca l'asfalto (car.fondo: compressioni e atterraggi), a cubetti
+    if (car.fondo > 0.15 && v > 10) {
+      const n = Math.round(2 + 9 * car.fondo);
+      for (let k = 0; k < n; k++) {
+        const lato = (Math.random() - 0.5) * 1.3, dietro = hl * (0.55 + Math.random() * 0.35), f = 0.55 + Math.random() * 0.35;
+        this.sparks.spawn(car.x - cy * dietro - sy * lato, car.y + 0.06, car.z - sy * dietro + cy * lato,
+          car.vx * f + (Math.random() - 0.5) * 3, 0.5 + Math.random() * 2, car.vz * f + (Math.random() - 0.5) * 3, 0.25 + Math.random() * 0.3, 0.035, Math.random() < 0.5 ? 0xffd070 : 0xff9a40);
+      }
+    }
+    // 21-11: fumo di scarico col motore danneggiato (solo danni meccanici): bianco, poi grigio, poi nero
+    const mot = car.dannoOn && car.dmg ? car.dmg.motore : 0;
+    if (mot > 0.25 || (car.dannoOn && car.distrutta)) {
+      const m = car.distrutta ? 1 : mot, gas = car.distrutta ? 0.6 : 0.35 + 0.65 * (car.throttle || 0);
+      if (Math.random() < (10 + 55 * m) * gas * dt) {
+        const col = m < 0.5 ? 0xf0f0f0 : m < 0.8 ? 0x808082 : 0x161616, lato = (Math.random() < 0.5 ? -1 : 1) * 0.35;
+        this.smoke.spawn(car.x - cy * (hl - 0.05) - sy * lato, car.y + 0.35, car.z - sy * (hl - 0.05) + cy * lato,
+          car.vx * 0.25 - cy * 2.5 + (Math.random() - 0.5) * 0.6, 0.5 + Math.random() * 0.5, car.vz * 0.25 - sy * 2.5 + (Math.random() - 0.5) * 0.6,
+          1.6 + Math.random() * 1.2 + m, 0.3 + 0.2 * m, col, 2.4);
+      }
+    }
     if (car.skid > 0.45 && v > 6 && Math.random() < (car.skid - 0.3) * dt * 14) {
       for (const side of [-0.85, 0.85])
         this.smoke.spawn(rx - sy * side, car.y + 0.25, rz + cy * side, car.vx * 0.2 + (Math.random() - 0.5), 0.6 + Math.random(), car.vz * 0.2 + (Math.random() - 0.5), 1.2 + Math.random() * 0.8, 0.35, wet ? 0xc8ccd2 : 0xd6d6d6, 2.6);

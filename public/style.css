@@ -335,3 +335,77 @@ body.con-specchio #hud .tc { top: var(--specchio-h, 120px); }
 @media (max-width: 620px) { .pgrid, .pmap { grid-template-columns: 1fr; } }
 .pfx { display: grid; grid-template-columns: 1fr 34px; gap: 8px; align-items: end; }
 .pfx button { padding: 4px 0; font-size: 12px; height: 28px; }
+
+/* ---- fase 0 (20-11-2026): Cubo Corse unito, pezzi dalla guida di Circuit Studio ---- */
+.solo-pacchetto { display: none !important; }
+body.pacchetto .solo-pacchetto { display: flex !important; }
+body.foto-semplice #photo .solo-voxel { display: none; }
+/* giro invalidato, resta finché il giro non finisce */
+#hinval { margin-top: 6px; background: rgba(200, 20, 20, .88); color: #fff; border-radius: 8px; padding: 5px 12px; font: 700 16px var(--cond); text-transform: uppercase; letter-spacing: .06em; text-align: center; min-width: 190px; box-sizing: border-box; }
+#hud .times b.nonvalido { color: #ff5a4a; text-decoration: line-through; text-decoration-thickness: 2px; }
+/* limitatore in corsia box */
+#hud .br .limitatore { grid-row: 1; grid-column: 1 / 3; justify-self: end; }
+.limitatore { display: none; align-self: flex-end; padding: 3px 10px; border-radius: 6px; background: #f2c200; color: #111; font-weight: 800; letter-spacing: .06em; font-size: 15px; margin-bottom: 6px; }
+.limitatore.on { display: inline-block; }
+/* sei auto: schede più basse, su due colonne quando c'è spazio */
+.carc small em.tipo { font-style: normal; font-weight: 700; color: var(--acc2, #ffd23f); }
+#menu .cars { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+#menu .carc { padding: 6px 10px; }
+#menu .carc small { font-size: 11px; line-height: 1.25; }
+#menu .carc .stat { font-size: 11px; }
+#menu .mauto .row { margin-top: 6px; }
+#menu .mpista .row { margin-top: 6px; }
+#menu .cards { gap: 6px; }
+.link-viewer { color: var(--fg); opacity: .75; text-decoration: none; font-size: 14px; border: 1px solid rgba(255,255,255,.2); border-radius: 8px; padding: 6px 12px; align-self: center; margin-left: auto; }
+.link-viewer:hover { opacity: 1; background: rgba(255,255,255,.08); }
+.link-viewer.hidden { display: none; }
+#menu .sw { width: 27px; height: 27px; border-radius: 7px; }
+#menu .swatches { gap: 5px; flex-wrap: nowrap; }
+#menu .carc small .da { display: block; opacity: .6; font-size: 10.5px; margin-top: 1px; }
+#menu .card { padding: 4px 10px; }
+#menu .card svg { height: 50px; width: 64px; }
+#menu .card { grid-template-columns: 64px 1fr; }
+
+/* ---------- 21-11: menu riordinato, vetrina dell'auto, pista caricata dietro il menu ---------- */
+canvas.gl { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+canvas.gl.attesa { visibility: hidden; }
+#menu.show { grid-template-columns: minmax(250px, 300px) minmax(360px, 440px) minmax(360px, 420px); }
+/* piste: elenco compatto per gioco */
+#menu .piste { display: flex; flex-direction: column; gap: 3px; }
+#menu .piste .gruppo, #menu .riga-auto .gruppo { font: 700 11px var(--sans, Inter, sans-serif); letter-spacing: .1em; text-transform: uppercase; color: var(--mut); margin: 4px 0 1px; }
+#menu .pista { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 10px; padding: 4px 10px; border-radius: 9px; background: var(--bg); border: 2px solid var(--line); text-align: left; cursor: pointer; }
+#menu .pista svg { width: 34px; height: 28px; }
+#menu .pista b { font: 800 italic 17px var(--cond); color: var(--fg); }
+#menu .pista small { color: var(--mut); font-size: 12px; }
+#menu .pista:hover { border-color: rgba(255,255,255,.35); }
+#menu .pista.sel { border-color: var(--acc); }
+#menu .mcirc { display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: center; margin: 6px 0 0; padding: 8px 10px; border-radius: 12px; background: rgba(255,255,255,.04); }
+#menu .mcirc svg { width: 96px; height: 80px; }
+#menu .mcirc b { display: block; font: 800 italic 18px/1.1 var(--cond); }
+#menu .mcirc small { display: block; color: var(--mut); font-size: 11.5px; margin-top: 2px; }
+/* auto: vetrina e scelta */
+#menu .vetrina { position: relative; height: clamp(170px, 31vh, 330px); border-radius: 14px; overflow: hidden;
+  background: radial-gradient(ellipse at 50% 38%, rgba(70,80,100,.55), rgba(10,12,16,.9) 72%); border: 1px solid var(--line); }
+#menu .vetrina canvas { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; }
+#menu .vetrina canvas:active { cursor: grabbing; }
+#menu .vetrina .freccia { position: absolute; top: 42%; width: 38px; height: 54px; padding: 0; font-size: 34px; line-height: 1; border-radius: 10px; background: rgba(0,0,0,.35); border: 1px solid rgba(255,255,255,.18); color: #fff; }
+#menu .vetrina .freccia:hover { background: rgba(255,59,47,.6); }
+#menu .vetrina .freccia.sx { left: 8px; }
+#menu .vetrina .freccia.dx { right: 8px; }
+#menu .mauto-nome { position: absolute; left: 0; right: 0; bottom: 0; padding: 18px 14px 8px; background: linear-gradient(transparent, rgba(0,0,0,.7)); pointer-events: none; }
+#menu .mauto-nome b { display: block; font: 800 italic 26px/1 var(--cond); }
+#menu .mauto-nome small { color: #cfd3da; font-size: 12px; }
+#menu .mstat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+#menu .mstat .stat { margin: 0; }
+#menu .scelta-auto { display: flex; flex-direction: column; gap: 3px; }
+#menu .riga-auto { display: grid; grid-template-columns: 96px repeat(3, 1fr); gap: 5px; align-items: center; }
+#menu .riga-auto .gruppo { margin: 0; font-size: 10px; }
+#menu .riga-auto button { padding: 5px 4px; font: 700 italic 14px var(--cond); white-space: nowrap; border-radius: 8px; }
+#menu .riga-auto button.sel { background: var(--acc); border-color: transparent; color: #fff; }
+#menu .row.spento { opacity: .4; }
+/* VIA con la barra del caricamento dietro il menu */
+#menu button.go { position: relative; overflow: hidden; }
+#menu button.go .go-barra { position: absolute; left: 0; bottom: 0; height: 4px; width: 0; background: #fff; opacity: .85; transition: width .25s; }
+#menu button.go.carica { background: #8f2c25; }
+#menu button.go.carica .go-testo { font-size: 18px; }
+#menu .mstato { min-height: 16px; color: var(--mut); font-size: 12px; text-align: center; margin-top: 3px; }

@@ -1,4 +1,5 @@
-// Visuali: inseguimento vicino/lontano, cofano, abitacolo, TV (griglia/arrivo) e camera libera per le foto.
+// Visuali (da Cubo Corse, riallineate il 07-11-2026): inseguimento vicino/lontano, cofano, abitacolo, TV (arrivo),
+// sguardo col mouse e indietro (tasto B), camera libera per le foto.
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
@@ -74,7 +75,8 @@ export class CameraRig {
     const v = car.speed;
     if (this.mode === 'inseguimento' || this.mode === 'lontana') {
       const far = this.mode === 'lontana';
-      const dist = far ? 9.5 : 6.4, h = far ? 3.1 : 2.05;
+      // pacchetto: auto più alte (Fast 74) → camera un po' più alta e lontana (visual.camAlto/camLontano)
+      const dist = (far ? 9.5 : 6.4) + (visual?.camLontano || 0), h = (far ? 3.1 : 2.05) + (visual?.camAlto || 0);
       // direzione morbida: segue l'auto, un po' la velocità nelle derapate
       let target = car.yaw;
       if (v > 5) {
@@ -107,6 +109,7 @@ export class CameraRig {
       const avanti = 3.0 * Math.max(0, Math.cos(sg.yaw));
       this.look.set(car.x + cy * avanti, car.y + (far ? 1.0 : 0.9), car.z + sy * avanti);
       cam.position.copy(this.pos);
+      cam.up.set(0, 1, 0);
       cam.lookAt(this.look);
       this.fov += (Math.min(82, 60 + v * 0.22) - this.fov) * ex(3);
     } else {
@@ -142,6 +145,7 @@ export class CameraRig {
   tv(dt, car, anchor) {
     const cam = this.cam;
     cam.position.copy(anchor);
+    cam.up.set(0, 1, 0);
     cam.lookAt(car.x, car.y + 0.8, car.z);
     const d = Math.hypot(anchor.x - car.x, anchor.z - car.z);
     cam.fov = THREE.MathUtils.clamp(2 * Math.atan(5 / Math.max(d, 1)) * 57.3, 8, 55);

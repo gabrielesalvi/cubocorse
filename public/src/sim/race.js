@@ -1,10 +1,18 @@
+// Cubo Corse unito (fase 0, 20-11-2026): regole di gara uniche. Base = Circuit Studio (righe «pacchetto»: danni attenuati
+// fra IA, profilo dell'IA sul bagnato, piazzole di griglia, IA distrutta o ritirata, limitatore in corsia box, stima dei
+// tempi), più le regole che c'erano solo in Cubo Corse (time trial lanciato, danni spenti nel time trial, auto del
+// giocatore guidata dall'IA dopo il traguardo, motore KO e auto ferma → distrutta). Auto distrutta tolta dopo 3 s.
 // Gara secca: griglia, semaforo, giri, classifica, arrivo.
-import { Car, CARS } from './car.js';
+import { Car, CARS, MODELLI_GUIDA } from './car.js';
 import { AIDriver } from './ai.js';
+import { profiloIA } from './profili.js';
 import { buildRacingLine } from './racingline.js';
 import { collideCars } from './collide.js';
 import { SURF } from './track.js';
 import { nuoviDanni } from './car.js';
+
+/** pacchetto: quota dei danni meccanici negli urti senza il giocatore (fra IA, IA contro muro) */
+export const DANNI_IA = { auto: 0.35, muro: 0.6 };
 
 /** uscite (4 ruote oltre il cordolo, all'esterno) tollerate con solo un avviso, poi +5 s a ogni uscita */
 export const AVVISI_LIMITI = 5;
@@ -39,17 +47,19 @@ export function mulberry32(a) {
 }
 
 const rlCache = new WeakMap();
-function racingLineFor(track, spec) {
+function racingLineFor(track, spec, wet = 0) {
   let m = rlCache.get(track);
   if (!m) rlCache.set(track, (m = {}));
-  if (!m[spec.id]) m[spec.id] = buildRacingLine(track, spec);
-  return m[spec.id];
+  // pacchetto: sul bagnato l'IA frena prima (profilo di velocità con l'aderenza della pista bagnata, come in car.step)
+  const k = `${spec.id}|${wet}`;
+  if (!m[k]) m[k] = buildRacingLine(track, spec, { muScale: 1 - 0.24 * wet });
+  return m[k];
 }
 
 export class Race {
   /**
    * opt: {track, laps, difficulty, grid: 'ultimo'|'caso'|'pole', playerCar (indice CARS) | null (solo IA),
-   *       playerLivery, wet, seed}
+   *       playerLivery, wet, seed, autoIA?: [indici di CARS], griglia?: [{s, d}], lancioTT?: metri}
    */
   constructor(opt) {
     this.opt = opt;
@@ -74,7 +84,7 @@ export class Race {
     this._pairT = new Map();
     const tr = this.track;
     // time trial: solo il giocatore, giri illimitati, nessun semaforo, partenza da fermo 200 m prima dell'ultima curva
-    // (giro di lancio: si passa il traguardo già lanciati)
+    // (giro di lancio: si passa il traguardo già lanciati); opt.lancioTT (metri prima del traguardo) la sostituisce
     this.timeTrial = !!opt.timeTrial;
     if (this.timeTrial) { this.laps = Infinity; this.penLimiti = false; this.penContatti = false; }
     const n = this.timeTrial ? 1 : Math.max(1, Math.min(10, Math.round(opt.nAuto || 10)));
@@ -90,10 +100,19 @@ export class Race {
     const liveries = LIVREE.map((_, k) => k).filter((k) => k !== (opt.playerLivery ?? -1));
     for (let slot = 0; slot < n; slot++) {
       const isP = slot === pslot;
-      const specIdx = isP ? opt.playerCar : (slot * 7 + 1) % CARS.length;
+      // auto dell'IA: opt.autoIA = indici di CARS fra cui scegliere (predefinito: tutte e sei)
+      const pool = opt.autoIA && opt.autoIA.length ? opt.autoIA : CARS.map((_, k) => k);
+      const specIdx = isP ? opt.playerCar : pool[(slot * 7 + 1) % pool.length];
       const car = new Car(CARS[specIdx], tr, slot);
-      const dist = this.timeTrial ? this._partenzaLanciata() : -(7 + slot * 8.5);
-      const d = this.timeTrial ? 0 : (slot % 2 ? 1 : -1) * tr.w[0] * 0.22;
+      // griglia: piazzole del circuito (opt.griglia = [{s, d}], s assoluto sulla pista) o schema generico
+      const G = !this.timeTrial && opt.griglia && opt.griglia[slot];
+      let dist = this.timeTrial ? (opt.lancioTT ? -opt.lancioTT : this._partenzaLanciata()) : -(7 + slot * 8.5);
+      let d = this.timeTrial ? 0 : (slot % 2 ? 1 : -1) * tr.w[0] * 0.22;
+      if (G) {
+        dist = tr.wrapS(G.s - tr.startS);
+        if (dist > tr.length / 2) dist -= tr.length;
+        d = G.d;
+      }
       car.reset(tr.startS + dist, d);
       car.dist = dist;
       car.lap = 0;
@@ -116,8 +135,10 @@ export class Race {
         car.num = prof.num;
         car.livery = liveries[ai % liveries.length];
         ai++;
-        const drv = new AIDriver(car, racingLineFor(tr, car.spec), prof, opt.difficulty, this.rand);
+        const drv = new AIDriver(car, racingLineFor(tr, car.spec, this.wet), prof, opt.difficulty, this.rand);
         this.drivers.push(drv);
+        // fase 0: l'IA guida col modello del profilo della pista (tempi invariati qualunque guida scelga il giocatore)
+        car.modelloGuida = MODELLI_GUIDA[profiloIA(tr).guidaIA] || null;
       }
       car.specIdx = specIdx;
       car.pen = 0; car.avvisi = 0; car._ex = null;
@@ -127,6 +148,11 @@ export class Race {
     if (this.timeTrial) { this.phase = 'gara'; this.started = true; this._rec = []; this._recK = 0; }
   }
 
+  progress(car) {
+    return car.dist;
+  }
+
+  /** passo fisso */
   /**
    * time trial: distanza (negativa, dal traguardo) del punto 200 m prima dell'ingresso dell'ultima curva.
    * L'ingresso è dove, risalendo dal centro della curva, la curvatura scende sotto 1/600 m⁻¹.
@@ -142,11 +168,6 @@ export class Race {
     return -(prima(s) + 200);
   }
 
-  progress(car) {
-    return car.dist;
-  }
-
-  /** passo fisso */
   step(dt, playerInput) {
     const tr = this.track;
     const nUrti = this.impacts.length;
@@ -170,19 +191,36 @@ export class Race {
       const car = this.cars[k];
       let inp;
       const drv = this.drivers[k];
-      if (drv) {
+      if (drv && car.distrutta) inp = { throttle: 0, brake: 1, steer: 0 };   // pacchetto: distrutta, l'IA non guida più
+      else if (drv) {
         const stuck = drv.update(dt, this.cars, this);
         inp = drv.inp;
-        if (stuck) this.resetCar(car, drv.rl);
+        // pacchetto: ferma per un guasto (motore a pezzi o due ruote rotte) non si rimette in pista: si ritira
+        if (stuck && this.danniReali && car.dmg && (car.dmg.motore >= 1 || car.dmg.ruote.filter((r) => r >= 1).length >= 2)) {
+          car.distrutta = true; car.ritirato = true; car.tDistrutta = this.time;
+          this.events.push({ t: 'distrutta', car, zona: 'guasto' });
+        } else if (stuck) this.resetCar(car, drv.rl);
         if (car.finished && this.time - car.finishTime > 3) inp = { ...inp, throttle: Math.min(inp.throttle, 0.3) };
       } else inp = playerInput || { throttle: 0, brake: 0, steer: 0 };
       if (!this.started) {
         inp = { ...inp, brake: 1, handbrake: false, rev: inp.throttle };
         car.rpmRev = inp.rev;
       }
+      // pacchetto: limitatore in corsia box (fra i due muretti, dove c'è l'isola), solo per il giocatore
+      car.limitatore = false;
+      if (car === this.player && tr.pit && tr.pit.limite && tr.inPit(car.proj)) {
+        const E = tr.pit.E, i = car.proj.i;
+        if (E.isl0[i] > 0 || E.isl0[(i + 6) % tr.n] > 0 || E.isl0[(i - 6 + tr.n) % tr.n] > 0) {
+          car.limitatore = true;
+          // oltre il limite: gas tagliato e freno automatico (in arcade come nei giochi, fino al limite)
+          if (car.speed > tr.pit.limite + 0.3) inp = { ...inp, throttle: 0, brake: Math.max(inp.brake, Math.min(1, (car.speed - tr.pit.limite) * 0.25)) };
+          else if (car.speed > tr.pit.limite) inp = { ...inp, throttle: 0 };
+          else if (car.speed > tr.pit.limite - 1.5) inp = { ...inp, throttle: Math.min(inp.throttle, 0.35) };
+        }
+      }
       const sPrev = car.proj.s;
       car.step(dt, inp, env);
-      if (!this.started) { car.vLong = 0; car.vLat = 0; car.r = 0; }
+      if (!this.started) { car.vLong = 0; car.vLat = 0; car.r = 0; if (car.gear === -1) car.gear = 1; }  // pacchetto: in griglia il freno non innesta la retro
       if (this.started && !car.finished && car === this.player) this._limiti(car, dt);
       if (this.timeTrial && car === this.player && car.lap > 0 && (this._recK++ % 4 === 0)) {
         const L = tr.length;
@@ -218,8 +256,8 @@ export class Race {
             this.events.push({ t: 'arrivo', car });
             if (car === this.player) {
               this.phase = 'finita'; this.endTime = this.time;
-              // giro di rientro: l'auto del giocatore la guida l'IA (prudente), invece di restare senza pilota
-              if (!car.distrutta) this.drivers[k] = new AIDriver(car, racingLineFor(tr, car.spec), { nome: car.nome, skill: 0.97, aggr: 0.1 }, 'normale', this.rand);
+              // giro di rientro: l'auto del giocatore la guida l'IA (prudente), invece di restare senza pilota (Cubo Corse)
+              if (!car.distrutta) this.drivers[k] = new AIDriver(car, racingLineFor(tr, car.spec, this.wet), { nome: car.nome, skill: 0.97, aggr: 0.1 }, 'normale', this.rand);
             }
           }
         }
@@ -233,8 +271,9 @@ export class Race {
     if (this.danniReali) {
       for (let k = nUrti; k < this.impacts.length; k++) this._dannoMeccanico(this.impacts[k]);
       // un'auto distrutta resta un ostacolo per 3 s, poi viene tolta (niente più urti, l'IA la ignora)
+      // auto distrutta tolta di mezzo dopo 3 s (decisione del 17-11, come Cubo Corse; Circuit Studio aveva 1,5 s)
       for (const c of this.cars) if (c.distrutta && !c.rimossa && this.time - c.tDistrutta > 3) { c.rimossa = true; c.ghost = 1e9; }
-      // motore KO e auto ferma: non può più ripartire, quindi è distrutta (ma non dopo aver tagliato il traguardo)
+      // motore KO e auto ferma: non può più ripartire, quindi è distrutta (ma non dopo aver tagliato il traguardo) (Cubo Corse)
       if (this.started) for (const c of this.cars) {
         if (c.distrutta || c.finished || !c.dmg || c.dmg.motore < 1) { c._ferma = 0; continue; }
         c._ferma = c.speed < 0.5 ? (c._ferma || 0) + dt : 0;
@@ -288,6 +327,10 @@ export class Race {
     for (const car of lista) {
       if (!car || car.distrutta || !car.dmg) continue;
       let a = Math.pow(Math.max(0, im.speed - 3) / 22, 1.6) * (im.type === 'auto' ? 0.75 : 1);
+      // pacchetto: nel cittadino le IA si toccano spesso (tornanti, muri vicini): fra sole IA danni attenuati,
+      // il giocatore li subisce pieni (sia quelli che fa sia quelli che riceve)
+      const conGiocatore = lista.includes(this.player) || (im.type === 'auto' && (im.a === this.player || im.b === this.player));
+      if (!conGiocatore) a *= im.type === 'auto' ? DANNI_IA.auto : DANNI_IA.muro;
       if (a < 0.01) continue;
       a = Math.min(a, 1.4);
       const D = car.dmg, cy = Math.cos(car.yaw), sy = Math.sin(car.yaw);
@@ -313,7 +356,7 @@ export class Race {
       const somma = D.muso + D.alettone + D.motore + D.cambio + D.ruote.reduce((x, y) => x + y, 0);
       const rotte = D.ruote.filter((r) => r >= 1).length;
       const distrutta = (a >= 0.95 && zona !== 'fianco destro' && zona !== 'fianco sinistro') || somma > 5 || (D.motore >= 1 && rotte >= 2) || rotte >= 3;
-      this.events.push({ t: 'danno', car, a, zona });
+      this.events.push({ t: 'danno', car, a, zona, tipo: im.type });
       if (distrutta) {
         car.distrutta = true; car.ritirato = true; car.tDistrutta = this.time;
         this.events.push({ t: 'distrutta', car, zona });
@@ -379,6 +422,7 @@ export class Race {
   }
 
   resetCar(car, rl) {
+    if (car.distrutta) return;   // pacchetto: un'auto distrutta resta dov'è (prima l'IA la "rimetteva in pista" a ogni passo)
     const tr = this.track;
     const s = car.proj.s;
     let d = 0;
@@ -413,7 +457,10 @@ export class Race {
       .map((c) => {
         let t = c.finishTime, stimato = false;
         if (!c.finished) {
-          const avg = Math.max(10, c.dist / Math.max(1, this.time));
+          // pacchetto: la media dal via (partenza da fermo, gara interrotta presto) sottostima molto: si usa il giro
+          // migliore dell'auto o, se non ne ha, ~125 km/h di media (un giro da 2:24 a Roncadelle)
+          const media = c.dist / Math.max(1, this.time), rif = isFinite(c.best) && c.best > 0 ? L / c.best : 34.7;
+          const avg = Math.max(10, media, rif * 0.97);
           t = this.time + (tot - c.dist) / avg;
           stimato = true;
         }

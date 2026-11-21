@@ -2,7 +2,8 @@
 
 Uso: ~/.openclaw/.venv/bin/python3 strumenti/importa.py
 Prende il gioco dall'ULTIMO COMMIT del repo privato (workspace/projects/cubo-corse), non dai file non committati.
-Si porta solo quello che serve per giocare: index.html, style.css, src/, vendor/, data/monza.json e, dal gioco unito
+Si porta solo quello che serve per giocare: index.html, style.css, src/, vendor/, data/monza.json, data/versioni-piste.json,
+CHANGELOG.md e, dal gioco unito
 (fase 0, 20-11-2026), cs/ = costruttori e pacchetti dei circuiti di Circuit Studio (Roncadelle e Nenni, ~15 MB).
 Restano fuori test, strumenti, documenti e tessere satellitari. I font Google sono locali (risorse/).
 """
@@ -17,7 +18,8 @@ ORIGINE = Path.home() / '.openclaw/workspace/projects/cubo-corse'
 DEST = RADICE / 'public'
 RISORSE = RADICE / 'risorse'
 DOMINIO = 'cubocorse.gabrielesalvi.com'
-PRENDI = ('index.html', 'style.css', 'src/', 'vendor/', 'data/monza.json', 'cs/viewer/', 'cs/pacchetti/')
+# 21-11 (Cubo Corse 1.0): anche CHANGELOG.md (pannello «Novità») e data/versioni-piste.json (record per versione della pista)
+PRENDI = ('index.html', 'style.css', 'src/', 'vendor/', 'data/monza.json', 'data/versioni-piste.json', 'CHANGELOG.md', 'cs/viewer/', 'cs/pacchetti/')
 GOOGLE = '''  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,800;1,700;1,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -52,7 +54,10 @@ if GOOGLE not in html:
     raise SystemExit('index.html del gioco è cambiato: aggiorna il blocco GOOGLE in questo script')
 (DEST / 'index.html').write_text(html.replace(GOOGLE, TESTA), encoding='utf-8')
 (DEST / 'CNAME').write_text(DOMINIO + '\n')
-(DEST / 'VERSIONE.txt').write_text(f'cubo-corse {commit}\n')
+# 21-11: numero di versione del gioco (src/versione.js, lo imposta tools/rilascio.py) + commit
+import re
+ver = re.search(r"VERSIONE = '([^']+)'", (DEST / 'src' / 'versione.js').read_text(encoding='utf-8'))
+(DEST / 'VERSIONE.txt').write_text(f'cubo-corse {ver.group(1) if ver else "?"} ({commit})\n')
 
 n = sum(1 for p in DEST.rglob('*') if p.is_file())
 mb = sum(p.stat().st_size for p in DEST.rglob('*') if p.is_file()) / 1e6

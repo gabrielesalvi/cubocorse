@@ -30,6 +30,7 @@
       <div class="logo">CUBO<span>CORSE</span></div>
       <div class="tag">GT a voxel e circuiti di città</div>
       <a id="astudio" class="link-viewer hidden" target="_blank" rel="noopener" title="Il circuito nel visualizzatore di Circuit Studio (solo da Tailscale)">Apri nello Studio</a>
+      <button id="bnovita" data-act="novita" class="link mnovita" title="Le novità di questa versione">Novità</button>
     </header>
     <section class="col mpista">
       <h3>Circuito</h3>
@@ -182,6 +183,15 @@
       <h2>Storico delle gare</h2>
       <div id="stab" class="stab"></div>
       <div class="btns"><button data-act="chiudiStorico">Chiudi</button></div>
+    </div>
+  </div>
+
+  <!-- novità (CHANGELOG.md, src/ui/novita.js) -->
+  <div id="novita" class="screen dim">
+    <div class="panel wide">
+      <h2>Novità</h2>
+      <div id="novtab" class="novtab"></div>
+      <div class="btns"><button data-act="chiudiNovita">Chiudi</button></div>
     </div>
   </div>
 

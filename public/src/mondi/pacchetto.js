@@ -156,6 +156,8 @@ export class MondoPacchetto {
     const on = this.notte, Qk = QUALITA[this.qk] || QUALITA.alto;
     this.mondo?.userData.notte?.accendi(on);
     for (const f of this._fari || []) f.visible = on;
+    for (const v of this._visuali || []) v.luciPosizione?.(on);   // 21-11: fanali posteriori accesi di notte
+    this.post?.notte(on);
     this.cielo.sole.castShadow = Qk.ombre > 0 && !on;
     if (on) { const N = this.mondo?.userData.notte; if (N) { N._t = 1; N.aggiorna(this.camera.position.x, -this.camera.position.z, 0); } }
   }
@@ -164,10 +166,12 @@ export class MondoPacchetto {
 
   creaAuto(spec, livery, num, s) { return creaVisuale(spec, livery, num, { stile: s.stileAuto }); }
   accendiFari(race, visuali) {
-    this._fari = visuali.map((v, i) => aggiungiFari(v, race.cars[i].spec, race.cars[i] === race.player));   // rev. 17
+    this._fari = visuali.map((v, i) => aggiungiFari(v, race.cars[i].spec, race.cars[i] === race.player, race.cars[i]));   // rev. 17
+    this._visuali = visuali;
     for (const f of this._fari) f.visible = this.notte;
+    for (const v of visuali) v.luciPosizione?.(this.notte);
   }
-  spegniFari() { this._fari = []; }
+  spegniFari() { this._fari = []; this._visuali = []; }
   nuovaGara() {}
 
   quota(x, z) { return this.dati.terreno.z(x, -z); }

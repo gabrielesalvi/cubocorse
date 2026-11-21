@@ -164,7 +164,10 @@ kbd { display: inline-block; min-width: 22px; padding: 2px 6px; border: 1px soli
 .rec-tab th { text-align: left; color: var(--mut); font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: .06em; padding: 4px 6px; border-bottom: 1px solid var(--line); }
 .rec-tab td { padding: 3px 6px; border-bottom: 1px solid rgba(255,255,255,.05); }
 .rec-tab td.r { font: 800 italic 18px var(--cond); color: #ffd23f; width: 34px; }
-.rec-tab td.n { font: 800 20px ui-monospace, Menlo, Consolas, monospace; letter-spacing: .2em; color: #fff; }
+.rec-tab td.n { font: 800 19px ui-monospace, Menlo, Consolas, monospace; letter-spacing: .04em; color: #fff; white-space: nowrap; }
+.rec-tab td.c { width: 26px; color: var(--mut); text-align: center; }
+.rec-tab td.c .ic-com { display: inline-flex; vertical-align: middle; }
+.rec-tab tr.primo td.c { color: #ffd23f; }
 .rec-tab td.t { color: #fff; }
 .rec-tab td.a, .rec-tab td.d { color: var(--mut); font-size: 13px; }
 .rec-tab tr.primo td.n, .rec-tab tr.primo td.t { color: #ffd23f; }
@@ -177,9 +180,12 @@ button.link { background: none; border: 1px solid var(--line); color: var(--fg, 
 .arcade { text-align: center; padding: 14px 10px; border: 2px solid #ffd23f; border-radius: 12px; background: rgba(0,0,0,.45); }
 .arc-tit { font: 800 italic 26px var(--cond); color: #ffd23f; letter-spacing: .05em; animation: lampeggio-testo 1s steps(2) infinite; }
 @keyframes lampeggio-testo { 50% { color: #ff3b2f; } }
-.arc-nome { margin: 12px 0 6px; display: flex; justify-content: center; gap: 18px; }
-.arc-nome span { font: 800 64px ui-monospace, Menlo, Consolas, monospace; color: #fff; width: 56px; border-bottom: 5px solid rgba(255,255,255,.25); cursor: pointer; }
-.arc-nome span.cur { color: #ffd23f; border-bottom-color: #ffd23f; animation: lampeggio-testo .6s steps(2) infinite; }
+/* 21-11 sera: nome del record (sole lettere, max 8) al posto delle 3 iniziali a scorrimento */
+.nome-rec { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 12px 0 6px; }
+.nome-rec span { color: var(--mut); font: 600 13px var(--cond); text-transform: uppercase; letter-spacing: .1em; }
+.nome-rec input { width: 11ch; font: 800 40px ui-monospace, Menlo, Consolas, monospace; text-align: center; color: #fff; background: rgba(255,255,255,.06);
+  border: none; border-bottom: 4px solid #ffd23f; border-radius: 6px 6px 0 0; padding: 4px 8px; outline: none; }
+.nome-rec input:focus { background: rgba(255,210,63,.1); }
 .arc-aiuto { color: var(--mut); font-size: 13px; margin-bottom: 10px; }
 .arc-ok { min-width: 140px; }
 
@@ -215,10 +221,21 @@ button.link { background: none; border: 1px solid var(--line); color: var(--fg, 
 #menu .card.sel { border-color: var(--acc); }
 #menu .mrecord .rec-tab { font-size: 14px; }
 #menu .mrecord .rec-tab td { padding: 2px 5px; }
-#menu .mrecord .rec-tab td.n { font-size: 16px; }
+#menu .mrecord .rec-tab td.n { font-size: 15px; }
 #menu .mrecord .rec-tab td.d { display: none; }
 #menu .rec-sub { font-size: 11.5px; margin-bottom: 3px; }
 #menu button.link { margin-top: 4px; align-self: flex-start; padding: 5px 12px; font-size: 13px; }
+/* 21-11: versione della pista nei record (tendina se ce n'è più d'una) e pannello «Novità» */
+#menu .rec-sub select { font: inherit; text-transform: none; color: var(--fg, #fff); background: rgba(255,255,255,.08); border: 1px solid var(--line); border-radius: 6px; padding: 0 4px; }
+#menu button.link.mnovita { margin: 0 0 0 auto; align-self: center; }
+.novtab { max-width: 760px; font-size: 15px; line-height: 1.45; }
+.novtab .nov-intro p { color: var(--mut); margin: 0 0 10px; }
+.novtab details { border-top: 1px solid var(--line); padding: 8px 0; }
+.novtab summary { cursor: pointer; font: 800 italic 22px var(--cond); letter-spacing: .02em; }
+.novtab h4 { margin: 12px 0 4px; font: 700 14px var(--cond); text-transform: uppercase; letter-spacing: .08em; color: #ffd23f; }
+.novtab ul { margin: 0; padding-left: 20px; }
+.novtab li { margin: 3px 0; }
+.novtab code { font-size: 13px; }
 /* auto: schede compatte */
 #menu .cars { grid-template-columns: 1fr; gap: 6px; }
 #menu .carc { padding: 8px 12px; border-radius: 12px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }

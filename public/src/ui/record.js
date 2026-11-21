@@ -1,19 +1,28 @@
 // Record e storico, salvati nel browser (localStorage).
-// - Record: i 10 giri migliori per pista (con la versione) × modalità (gara | time trial) × tipo di comando (tastiera |
-//   controller), con le iniziali (3 lettere) come ai cabinati. Non per modello di guida, sterzo o fisica (decisione del
-//   17-11, fase 0). Valgono solo i giri puliti (niente uscite con 4 ruote fuori, niente rimesse in pista).
+// - Record: i 10 giri migliori per pista (con la versione) × modalità (gara | time trial). Non per modello di guida, sterzo o
+//   fisica (decisione del 17-11, fase 0). Valgono solo i giri puliti (niente uscite con 4 ruote fuori, niente rimesse in pista).
 // - Storico: le ultime 50 gare.
 // Fase 0 (20-11): chiave nuova (v2). I record di prima (v1, pista × fisica, tutti da tastiera) passano in «gara · tastiera».
+// 21-11 (Cubo Corse 1.0): la pista nella chiave porta la sua versione («roncadelle-B@v2»): una classifica per versione
+// della pista (ui/versioni.js). I record fatti fino ad allora restano dove sono e diventano la v1 (decisione di Gabriele).
+// 21-11 sera (Gabriele): tastiera e controller nella STESSA classifica (tutti contro tutti), con un simbolo del comando usato
+// accanto al tempo (chiave v4: le classifiche v3 tastiera e controller unite); al posto delle 3 iniziali da cabinato un nome
+// di sole lettere, al massimo 8, scritto nella casella. Le chiavi vecchie (v2, v3) restano nel browser come copia.
 
-const KEY = 'cubo-corse-record-v2', KEY_V1 = 'cubo-corse-record-v1';
-const MAX_BOARD = 10, MAX_STORICO = 50;
-const LETTERE = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-* ';
+const KEY = 'cubo-corse-record-v4', KEY_V3 = 'cubo-corse-record-v3', KEY_V2 = 'cubo-corse-record-v2', KEY_V1 = 'cubo-corse-record-v1';
+const MAX_BOARD = 10, MAX_STORICO = 50, MAX_NOME = 8;
 export const MODI = { arcade: 'Arcade', realistica: 'Realistica' };
 export const MODALITA = { gara: 'Gara', tempo: 'Time trial' };
 export const COMANDI = { tastiera: 'Tastiera', controller: 'Controller' };
-/** categoria di un record: modalità e tipo di comando */
-export const categoria = (modo, comando) => `${modo === 'tempo' ? 'tempo' : 'gara'}|${comando === 'controller' ? 'controller' : 'tastiera'}`;
-export const nomeCategoria = (cat) => { const [m, c] = cat.split('|'); return `${MODALITA[m] || m} · ${(COMANDI[c] || c).toLowerCase()}`; };
+/** categoria di un record: la modalità (tastiera e controller insieme dal 21-11) */
+export const categoria = (modo) => (modo === 'tempo' ? 'tempo' : 'gara');
+export const nomeCategoria = (cat) => MODALITA[cat] || cat;
+/** simbolo del comando con cui è stato fatto il giro (SVG, colore del testo) */
+const ICONE = {
+  tastiera: '<svg viewBox="0 0 24 16" width="20" height="13" aria-hidden="true"><rect x="1" y="1" width="22" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 5h2M9 5h2M13 5h2M17 5h2M5 8.5h2M9 8.5h2M13 8.5h2M17 8.5h2M7 12h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+  controller: '<svg viewBox="0 0 24 16" width="20" height="13" aria-hidden="true"><path d="M7 2h10c3 0 5 2.5 5.6 6.5.5 3.4-.6 5.5-2.4 5.5-1.5 0-2.4-1.3-3.4-2.8H7.2C6.2 12.7 5.3 14 3.8 14 2 14 .9 11.9 1.4 8.5 2 4.5 4 2 7 2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6.5 6v4M4.5 8h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="16.5" cy="6.8" r="1.1" fill="currentColor"/><circle cx="18.8" cy="9.2" r="1.1" fill="currentColor"/></svg>',
+};
+export const iconaComando = (c) => (ICONE[c] ? `<span class="ic-com" title="${COMANDI[c]}">${ICONE[c]}</span>` : '');
 
 function migraV1() {
   try {
@@ -27,20 +36,43 @@ function migraV1() {
     return { boards, storico: v1.storico || [], ultimoNome: v1.ultimoNome || 'AAA' };
   } catch { return null; }
 }
+/** record v2 (o v1) → v3: ogni pista diventa la sua v1 */
+function migraV2() {
+  let d = null;
+  try { const raw = localStorage.getItem(KEY_V2); d = raw ? JSON.parse(raw) : migraV1(); } catch { d = null; }
+  if (!d) return null;
+  const boards = {};
+  for (const [k, b] of Object.entries(d.boards || {})) { const [pista, ...cat] = k.split('|'); boards[[`${pista.includes('@v') ? pista : pista + '@v1'}`, ...cat].join('|')] = b.map((r) => ({ vPista: 1, ...r })); }
+  return { boards, storico: (d.storico || []).map((g) => ({ vPista: 1, ...g })), ultimoNome: d.ultimoNome || 'AAA' };
+}
+/** v3 → v4: per ogni pista e modalità le classifiche tastiera e controller unite (ogni record si porta il suo comando) */
+function migraV3() {
+  let d = null;
+  try { const raw = localStorage.getItem(KEY_V3); d = raw ? JSON.parse(raw) : migraV2(); } catch { d = null; }
+  if (!d) return null;
+  const boards = {};
+  for (const [k, b] of Object.entries(d.boards || {})) {
+    const [pista, modo, com] = k.split('|'), nk = `${pista}|${modo === 'tempo' ? 'tempo' : 'gara'}`;
+    boards[nk] = (boards[nk] || []).concat(b.map((r) => ({ comando: com === 'controller' ? 'controller' : 'tastiera', ...r })))
+      .sort((x, y) => x.tempo - y.tempo).slice(0, MAX_BOARD);
+  }
+  return { boards, storico: d.storico || [], ultimoNome: d.ultimoNome || '' };
+}
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) { const m = migraV1(); if (m) { save(m); return m; } }
+    if (!raw) { const m = migraV3(); if (m) { save(m); return m; } }
     const d = JSON.parse(raw || '{}');
-    return { boards: d.boards || {}, storico: d.storico || [], ultimoNome: d.ultimoNome || 'AAA' };
+    return { boards: d.boards || {}, storico: d.storico || [], ultimoNome: d.ultimoNome || '' };
   } catch {
-    return { boards: {}, storico: [], ultimoNome: 'AAA' };
+    return { boards: {}, storico: [], ultimoNome: '' };
   }
 }
 function save(d) {
   try { localStorage.setItem(KEY, JSON.stringify(d)); } catch { /* spazio pieno o storage bloccato: pazienza */ }
 }
-const chiave = (pista, cat) => `${pista}|${cat || 'gara|tastiera'}`;
+/** pista = chiave con la versione (chiaveRecord in ui/versioni.js: «roncadelle-B@v2») */
+const chiave = (pista, cat) => `${pista}|${cat || 'gara'}`;
 
 export function board(pista, cat) {
   return load().boards[chiave(pista, cat)] || [];
@@ -75,8 +107,10 @@ export function aggiungiStorico(voce) {
 export function storico() {
   return load().storico;
 }
+/** ultimo nome usato (vuoto se era ancora quello di prova «AAA» delle iniziali) */
 export function ultimoNome() {
-  return load().ultimoNome;
+  const n = load().ultimoNome || '';
+  return n === 'AAA' ? '' : n;
 }
 
 const fmt = (t) => {
@@ -92,58 +126,39 @@ export function htmlBoard(b, evidenzia = -1, righe = MAX_BOARD) {
   if (!b.length) return '<p class="rec-vuoto">Ancora nessun record. Il primo giro pulito è tuo.</p>';
   const ord = ['1°', '2°', '3°', '4°', '5°', '6°', '7°', '8°', '9°', '10°'];
   return `<table class="rec-tab">${b.slice(0, righe).map((r, i) => `<tr class="${i === evidenzia ? 'nuovo' : ''}${i === 0 ? ' primo' : ''}">
-    <td class="r">${ord[i]}</td><td class="n">${esc(r.nome)}</td><td class="t">${fmt(r.tempo)}</td>
-    <td class="a">${esc(r.auto || '')}</td><td class="m" title="${esc(r.meteo || '')}">${METEO_ICONA[r.meteo] || ''}</td><td class="d">${esc((r.data || '').slice(0, 10))}</td></tr>`).join('')}</table>`;
+    <td class="r">${ord[i]}</td><td class="n">${esc(r.nome)}</td><td class="t">${fmt(r.tempo)}</td><td class="c">${iconaComando(r.comando)}</td>
+    <td class="a">${esc(r.auto || '')}</td><td class="m" title="${esc(r.meteo || '')}">${METEO_ICONA[r.meteo] || ''}</td><td class="d" title="${esc(r.gioco ? `Cubo Corse ${r.gioco}` : 'prima della 1.0')}">${esc((r.data || '').slice(0, 10))}</td></tr>`).join('')}</table>`;
 }
 
 export function htmlStorico(lista, nomiPiste) {
   if (!lista.length) return '<p class="rec-vuoto">Nessuna gara ancora.</p>';
   return `<table class="rec-tab storico"><tr><th>Data</th><th>Pista</th><th>Comandi</th><th>Giri</th><th>Avversari</th><th>Pos.</th><th>Tempo</th><th>Giro migliore</th><th>Auto</th></tr>${lista.map((g) => `<tr>
-    <td>${esc((g.data || '').replace('T', ' ').slice(0, 16))}</td><td>${esc(nomiPiste[g.pista] || g.pista)}</td><td>${esc(COMANDI[g.comando] || MODI[g.fisica] || g.fisica || '')}</td>
+    <td>${esc((g.data || '').replace('T', ' ').slice(0, 16))}</td><td>${esc(nomiPiste[g.pista] || g.pista)}${g.vPista ? ` <span class="pen">v${g.vPista}</span>` : ''}</td><td>${esc(COMANDI[g.comando] || MODI[g.fisica] || g.fisica || '')}</td>
     <td>${g.giri}</td><td>${esc(g.tipo === 'tempo' ? 'time trial' : g.diff)}</td><td class="r">${g.tipo === 'tempo' ? 'TT' : g.pos === 'RIT' ? 'RIT' : g.pos + '°'}</td><td>${g.tipo === 'tempo' ? '—' : fmt(g.tempo)}${g.pen ? ` <span class="pen">(+${g.pen} s)</span>` : ''}</td>
     <td>${fmt(g.best)}${g.bestValido === false ? ' <span class="pen" title="nessun giro pulito">*</span>' : ''}</td><td>${esc(g.auto)}</td></tr>`).join('')}</table>`;
 }
 
+/** solo lettere (anche accentate), al massimo 8 */
+export const pulisciNome = (t) => String(t || '').replace(/[^\p{L}]/gu, '').slice(0, MAX_NOME);
+
 /**
- * Inserimento delle iniziali da cabinato dentro `el`: ↑↓ cambiano lettera, ←→ spostano, si può anche digitare;
- * Invio conferma. Ritorna una Promise con le 3 lettere.
+ * 21-11 sera (Gabriele): il nome del record, sole lettere (niente numeri), al massimo 8, in una casella di testo; Invio o
+ * OK conferma. Al posto dell'inserimento da cabinato a 3 lettere. Col controller si conferma il nome già scritto (l'ultimo
+ * usato). Ritorna una Promise con il nome; vuoto → «Pilota».
  */
-export function chiediIniziali(el, titolo, iniziali = 'AAA') {
+export function chiediNome(el, titolo, nome = '') {
   return new Promise((resolve) => {
-    let nome = (iniziali + '   ').slice(0, 3).toUpperCase().split('').map((c) => (LETTERE.includes(c) ? c : 'A'));
-    let cur = 0;
-    const draw = () => {
-      el.innerHTML = `<div class="arcade"><div class="arc-tit">${titolo}</div>
-        <div class="arc-nome">${nome.map((c, i) => `<span class="${i === cur ? 'cur' : ''}">${c === ' ' ? '_' : esc(c)}</span>`).join('')}</div>
-        <div class="arc-aiuto">↑ ↓ lettera · ← → posizione · oppure scrivi · <b>Invio</b> per confermare</div>
-        <button class="go arc-ok">OK</button></div>`;
-      el.querySelector('.arc-ok').onclick = fine;
-      el.querySelectorAll('.arc-nome span').forEach((sp, i) => { sp.onclick = () => { cur = i; draw(); }; });
-    };
-    const giro = (d) => {
-      const k = LETTERE.indexOf(nome[cur]);
-      nome[cur] = LETTERE[(k + d + LETTERE.length) % LETTERE.length];
-    };
-    const onKey = (e) => {
-      const c = e.key;
-      if (c === 'ArrowUp') giro(-1);
-      else if (c === 'ArrowDown') giro(1);
-      else if (c === 'ArrowLeft') cur = Math.max(0, cur - 1);
-      else if (c === 'ArrowRight') cur = Math.min(2, cur + 1);
-      else if (c === 'Backspace') { cur = Math.max(0, cur - 1); nome[cur] = ' '; }
-      else if (c === 'Enter') { e.preventDefault(); e.stopImmediatePropagation(); fine(); return; }
-      else if (c.length === 1 && LETTERE.includes(c.toUpperCase())) { nome[cur] = c.toUpperCase(); cur = Math.min(2, cur + 1); }
-      else return;
-      e.preventDefault();
-      e.stopImmediatePropagation();
-      draw();
-    };
-    function fine() {
-      removeEventListener('keydown', onKey, true);
-      const n = nome.join('').trimEnd() || 'AAA';
-      resolve(n);
-    }
-    addEventListener('keydown', onKey, true);
-    draw();
+    el.innerHTML = `<div class="arcade"><div class="arc-tit">${titolo}</div>
+      <label class="nome-rec"><span>Il tuo nome</span><input type="text" maxlength="${MAX_NOME}" autocomplete="nickname" spellcheck="false" value="${esc(pulisciNome(nome))}" placeholder="Pilota"></label>
+      <div class="arc-aiuto">solo lettere, al massimo ${MAX_NOME} · <b>Invio</b> per confermare</div>
+      <button class="go arc-ok">OK</button></div>`;
+    const inp = el.querySelector('input'), ok = el.querySelector('.arc-ok');
+    let fatto = false;
+    inp.oninput = () => { const v = pulisciNome(inp.value); if (v !== inp.value) inp.value = v; };
+    const fine = () => { if (fatto) return; fatto = true; inp.disabled = true; delete el._confermaNome; resolve(pulisciNome(inp.value) || 'Pilota'); };
+    el._confermaNome = fine;          // uscendo dai risultati senza OK il record si salva lo stesso (main.js)
+    inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); fine(); } };
+    ok.onclick = fine;
+    setTimeout(() => { inp.focus(); inp.select(); }, 50);
   });
 }

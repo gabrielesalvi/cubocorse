@@ -105,6 +105,9 @@ export class Post {
     C.addPass(this.bloom);
     C.addPass(new OutputPass());
   }
+  /** 21-11: di notte il bagliore resta stretto attorno alle lampade (raggio più corto), così fari e lampioni non diventano
+   *  palle di luce; di giorno com'era */
+  notte(on) { this.bloom.strength = on ? 0.3 : 0.25; this.bloom.radius = on ? 0.2 : 0.4; this.bloom.threshold = 1.0; }
   normaliPiatte(si) {
     const m = this.gtao.normalMaterial;
     m.flatShading = si; m.side = si ? THREE.DoubleSide : THREE.FrontSide; m.needsUpdate = true;

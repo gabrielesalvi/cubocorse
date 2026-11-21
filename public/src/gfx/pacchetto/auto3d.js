@@ -963,9 +963,13 @@ export class AutoLowPoly {
   /** luci dei freni accese o spente */
   freni(on) {
     if (on === this._br) return; this._br = on;
-    if (this.stopMat.emissive) { this.stopMat.emissiveIntensity = on ? 2.6 : 0.15; this.stopMat.color.set(on ? 0xff3a2a : 0x4a0808); }
-    else this.stopMat.color.set(on ? 0xff2a1a : 0x5a0a0a);
+    const pos = !!this._pos;      // di notte i fanali sono accesi anche senza frenare (luci di posizione)
+    if (this.stopMat.emissive) { this.stopMat.emissiveIntensity = on ? 2.6 : pos ? 0.8 : 0.15; this.stopMat.color.set(on ? 0xff3a2a : pos ? 0x8a1410 : 0x4a0808); }
+    else this.stopMat.color.set(on ? 0xff2a1a : pos ? 0xb0160e : 0x5a0a0a);
   }
+
+  /** 21-11: luci di posizione (notte): fanali posteriori accesi, più forti in frenata */
+  luciPosizione(on) { this._pos = !!on; const br = this._br; this._br = undefined; this.freni(!!br); }
 
   setCockpit(on) {
     this.cockpitOn = on;

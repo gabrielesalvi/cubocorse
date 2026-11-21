@@ -21,6 +21,7 @@ import { portali } from '../../../cs/viewer/src/costruttori/portali.js';
 import { applicaAsfalto, ambienteCielo, BAGNATO } from './asfalto.js';
 import { tassella } from './tassella.js';
 import { luciNotte, Notte } from '../../../cs/viewer/src/costruttori/notte.js';
+import { starsPoints } from '../textures.js';
 
 const pausa = () => new Promise((r) => setTimeout(r, 0));
 
@@ -102,6 +103,8 @@ export async function costruisciMondo(dati, v, avanza = () => {}) {
   }
   // rev. 17: notte (luci delle sorgenti del circuito; accesa da main.js con l'ora «notte»)
   const N = new Notte(luciNotte(dati, v, { lampioni: g.userData.lampioni }), terreno, { nLuci: 6 }); g.add(N.g); g.userData.notte = N;
+  // 21-11: lampade dei lampioni più piccole (1,6 m in cs/viewer, che è una copia: qui senza toccarla), come i fari
+  N.g.traverse((o) => { if (o.isPoints && o.name === 'Lampade') o.material.size = 0.6; });
   applicaAsfalto(g);                     // rev. 9: asfalto e vernice PBR con texture e riflessi (asfalto.js)
   // 11-11 (prestazioni): le mesh grandi quanto la città divise in riquadri, così le parti fuori inquadratura non si disegnano
   // (tassella.js; ?tasselli=0 per confrontare senza, ?tasselli=<lato mesh>,<lato istanze> in metri per provare altre misure)
@@ -116,8 +119,13 @@ export const ORE = {
   mattina: { nome: 'Mattina', dir: [0.85, 0.42, -0.35], sole: 0xffe2bf, iSole: 2.1, iEmi: 1.3, top: '#6aa6dc', oriz: '#f1e3cf' },
   giorno: { nome: 'Mezzogiorno', dir: [-0.45, 1, 0.6], sole: 0xfff2dd, iSole: 2.4, iEmi: 1.45, top: '#5d9bd6', oriz: '#dce8f0' },
   tramonto: { nome: 'Tramonto', dir: [-0.9, 0.22, 0.25], sole: 0xffb36b, iSole: 2.0, iEmi: 1.05, top: '#5a7fb8', oriz: '#f5b98a' },
-  // rev. 17: notte, illuminata solo dai fari e dalle luci del circuito (nella A anche dai lampioni); la luna appena
-  notte: { nome: 'Notte', dir: [0.35, 0.9, -0.3], sole: 0x9fb2ff, iSole: 0.09, iEmi: 0.1, top: '#02040a', oriz: '#0a0f1a', notte: true },
+  // rev. 17: notte, illuminata solo dai fari e dalle luci del circuito (nella A anche dai lampioni); la luna appena.
+  // 21-11 (Gabriele: «se è nuvoloso c'è un sacco di luce riflessa», «non ci sono stelle»): col cielo coperto il grigio del
+  // meteo (pensato per il giorno: cielo #787e84, nebbia #8c939a) faceva sfumare tutto oltre 500 m verso il chiaro; ora di
+  // notte le nuvole sono scure con un filo di bagliore caldo all'orizzonte (le luci della città sulle nuvole basse).
+  // Luna più bassa (si vede in gara) nella direzione della sua luce; stelle e luna solo col sereno.
+  notte: { nome: 'Notte', dir: [0.55, 0.3, -0.78], sole: 0x9fb2ff, iSole: 0.09, iEmi: 0.1, top: '#02040a', oriz: '#0a0f1a', notte: true,
+    coperto: { top: '#0b0d12', oriz: '#1f1b17' } },
 };
 export const METEO = {
   sereno: { nome: 'Sereno', kSole: 1, kEmi: 1, grigio: 0, nebbia: [700, 4200], pioggia: 0, wet: 0 },
@@ -142,6 +150,11 @@ export class Cielo {
     this.cupola.renderOrder = -10; this.cupola.frustumCulled = false;
     scene.add(this.cupola);
     this.pioggia = null; this.wet = 0;
+    // 21-11: stelle (le stesse delle piste voxel, textures.js) e luna, accese di notte col sereno; seguono la camera
+    this.stelle = starsPoints(); this.stelle.visible = false; this.stelle.renderOrder = -9; this.stelle.frustumCulled = false;
+    this.luna = new THREE.Mesh(new THREE.SphereGeometry(38, 20, 12), new THREE.MeshBasicMaterial({ color: 0xdfe8ff, fog: false }));
+    this.luna.visible = false; this.luna.renderOrder = -9; this.luna.frustumCulled = false;
+    scene.add(this.stelle, this.luna);
     // stessi valori del visualizzatore, con un sole un po' più deciso per le ombre
     this.emi = new THREE.HemisphereLight(0xeaf3ff, 0x6b6150, 1.45);
     this.sole = new THREE.DirectionalLight(0xfff2dd, 2.4);
@@ -157,7 +170,12 @@ export class Cielo {
   /** ora del giorno e meteo: direzione e colore del sole, cielo, nebbia, pioggia */
   imposta(ora = 'giorno', meteo = 'sereno') {
     const O = ORE[ora] || ORE.giorno, M = METEO[meteo] || METEO.sereno;
-    const grigio = new THREE.Color('#8d949b'), top = new THREE.Color(O.top).lerp(grigio, M.grigio), oriz = new THREE.Color(O.oriz).lerp(grigio.clone().offsetHSL(0, 0, 0.12), M.grigio);
+    const grigio = new THREE.Color('#8d949b');
+    let top, oriz;
+    if (O.coperto) {          // notte: le nuvole sono scure, non grigio chiaro (21-11)
+      const k = Math.min(1, M.grigio / 0.7);
+      top = new THREE.Color(O.top).lerp(new THREE.Color(O.coperto.top), k); oriz = new THREE.Color(O.oriz).lerp(new THREE.Color(O.coperto.oriz), k);
+    } else { top = new THREE.Color(O.top).lerp(grigio, M.grigio); oriz = new THREE.Color(O.oriz).lerp(grigio.clone().offsetHSL(0, 0, 0.12), M.grigio); }
     const geo = this.cupola.geometry, n = geo.attributes.position.count, c = geo.attributes.color, k = new THREE.Color();
     for (let i = 0; i < n; i++) { const y = geo.attributes.position.getY(i) / 6000; k.copy(oriz).lerp(top, Math.pow(Math.max(0, y), 0.55)); c.setXYZ(i, k.r, k.g, k.b); }
     c.needsUpdate = true;
@@ -170,14 +188,20 @@ export class Cielo {
     this.wet = M.wet; BAGNATO.value = M.wet;
     // rev. 9: ambiente riflesso (asfalto, vernici, auto PBR): il cielo di quest'ora e meteo, più il sole
     if (this.envRT) this.envRT.dispose();
-    this.envRT = ambienteCielo(this.renderer, top, oriz, this.dir, this.sole.color, M.kSole);
+    // (di notte col cielo coperto niente disco della luna da riflettere)
+    this.envRT = ambienteCielo(this.renderer, top, oriz, this.dir, this.sole.color, O.notte && M.grigio > 0.3 ? 0 : M.kSole);
     this.scene.environment = this.envRT.texture;
     this.scene.environmentIntensity = (O.notte ? 0.08 : 0.55) * (1 - M.grigio * 0.25);
     this.notte = !!O.notte;
+    const sereno = this.notte && M.grigio < 0.3;
+    this.stelle.visible = sereno; this.luna.visible = sereno;
     if (M.pioggia && !this.pioggia) this.pioggia = new Pioggia(this.scene);
     if (this.pioggia) this.pioggia.linee.visible = !!M.pioggia;
   }
-  update(dt, cam) { if (this.pioggia && this.pioggia.linee.visible) this.pioggia.update(dt, cam); }
+  update(dt, cam) {
+    if (this.stelle.visible) { this.stelle.position.copy(cam.position); this.luna.position.copy(this.dir).multiplyScalar(2800).add(cam.position); }
+    if (this.pioggia && this.pioggia.linee.visible) this.pioggia.update(dt, cam);
+  }
 
   /** il riquadro delle ombre segue il punto (davanti all'auto) */
   segui(x, y, z) {

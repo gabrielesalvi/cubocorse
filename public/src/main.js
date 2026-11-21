@@ -18,6 +18,9 @@ import { Pad, PadSchermata, nomeController } from './ui/pad.js';
 import { MondoVoxel, PISTE_VOXEL, elencoVoxel, INFO_VOXEL } from './mondi/voxel.js';
 import { MondoPacchetto, elencoPacchetti, INFO_PACCHETTO } from './mondi/pacchetto.js';
 import { Vetrina } from './ui/vetrina.js';
+import { caricaVersioni, versionePista, storiaPista, chiaveRecord } from './ui/versioni.js';   // 21-11: versioni delle piste
+import { mostraNovita, novitaDaMostrare } from './ui/novita.js';
+import { VERSIONE } from './versione.js';
 
 const STEP = 1 / 120;
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -27,6 +30,8 @@ const Q = new URLSearchParams(location.search);
 const STUDIO = /^100\.\d+\.\d+\.\d+$|\.ts\.net$/.test(location.hostname) ? `http://${location.hostname.endsWith('.ts.net') ? location.hostname : '100.64.65.118'}:8112/viewer/` : null;
 
 // ------------------------------------------------------------------ comandi
+/** tasti che guidano l'auto (frecce, WASD, freno a mano): solo questi fanno contare la tastiera come comando in uso */
+const TASTI_GUIDA = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space']);
 class Input {
   constructor() {
     this.k = new Set();
@@ -38,7 +43,10 @@ class Input {
     addEventListener('keydown', (e) => {
       if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
       const c = e.code;
-      this.ultimaTastiera = performance.now();
+      // 21-11 sera (Gabriele): solo i tasti di guida fanno passare alla tastiera. Prima qualunque tasto (C per la visuale,
+      // Esc per la pausa, L, G…) toglieva la guida al controller finché non si muoveva una levetta, e il giro risultava
+      // fatto da tastiera (simbolo sbagliato nei record).
+      if (TASTI_GUIDA.has(c)) this.ultimaTastiera = performance.now();
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(c)) e.preventDefault();
       if (!e.repeat && this.handlers[c]) this.handlers[c](e);
       this.k.add(c);
@@ -94,6 +102,7 @@ class App {
     // elenco delle piste: per il menu basta poco (contorni e dati); la pista vera si costruisce dietro il menu
     this.pacchetti = await elencoPacchetti();
     this.datiVoxel = await elencoVoxel();
+    await caricaVersioni();
     this.cachePacchetti = {};
     if (!PISTE_VOXEL.includes(s.track) && !this.pacchetti.some((p) => p.id === s.track)) s.track = 'monza';
     this.piste = [...this.datiVoxel.lista, ...this.pacchetti];
@@ -128,6 +137,9 @@ class App {
     this.aggiornaVetrina();
     this.recordMenu();
     this.linkStudio();
+    // 21-11: versione del gioco in alto nel menu; le novità si aprono da sole una volta dopo ogni aggiornamento
+    const bv = $id('bnovita'); if (bv) bv.textContent = `Novità · v${VERSIONE.replace(/-pre$/, ' (in arrivo)')}`;
+    if (novitaDaMostrare()) this.apriNovita();
     this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
     this.prepara();                   // la pista scelta si costruisce dietro il menu
@@ -150,6 +162,10 @@ class App {
   }
   /** id della pista scelta per record, ghost e storico: le piste dei pacchetti con la versione (roncadelle-B) */
   pistaId() { const t = this.pista(); return t.mondo === 'voxel' ? t.id : `${t.id}-${this.versione(t)}`; }
+  /** chiave dei record e dei ghost: la pista con la sua versione (21-11), l'attuale se v non c'è */
+  pistaRecord(v) { return chiaveRecord(this.pistaId(), v ?? versionePista(this.pistaId())); }
+  /** nome della pista con la versione, per i titoli dei record */
+  nomeRecord(v) { const id = this.pistaId(); return `${this.nomiPiste?.[id] || id} · v${v ?? versionePista(id)}`; }
   /** cosa serve costruire per la scelta del menu (la qualità conta solo nel mondo voxel: là cambia la costruzione) */
   chiaveSelezione() { const t = this.pista(); return `${t.id}|${this.versione(t)}|${t.mondo === 'voxel' ? this.settings.qual : ''}`; }
   /** la pista scelta è quella pronta dietro il menu? */
@@ -276,10 +292,10 @@ class App {
       // solo le sue tre auto; il giocatore sceglie quella che vuole
       autoIA: CARS.map((c, k) => (c.modello === (W.tipo === 'voxel' ? 'voxel' : 'lowpoly') ? k : -1)).filter((k) => k >= 0),
     });
-    // time trial: fantasma del giro migliore per questa pista e tipo di comando
+    // time trial: fantasma del giro migliore per questa pista (uno solo, qualunque sia il comando: 21-11)
     if (this.ghost) { this.ghost.dispose(); this.ghost = null; }
     if (this.race.timeTrial) {
-      const g = caricaGhost(this.pistaId(), this.comandoMenu());
+      const g = caricaGhost(this.pistaRecord());
       const spec = (g && (CARS.find((c) => c.id === g.specId) || CARS[g.specIdx])) || CARS[s.car];
       this.ghost = new Ghost(scene, spec, LIVREE[g ? g.livery ?? s.livery : s.livery] || LIVREE[0], 1, s.stileAuto, W.tipo === 'voxel');
       this.ghost.set(g);
@@ -398,10 +414,12 @@ class App {
         this.audio.ready && this.audio.ui();
         const a = b.dataset.act;
         if (a === 'resume') this.setPause(false);
-        if (a === 'restart') { UI.showScreen('results', false); this.setPause(false); this.go(); }
+        if (a === 'restart') { $id('rrecord')?._confermaNome?.(); UI.showScreen('results', false); this.setPause(false); this.go(); }
         if (a === 'menu') this.toMenu();
         if (a === 'storico') { $id('stab').innerHTML = REC.htmlStorico(REC.storico(), this.nomiPiste || {}); UI.showScreen('storico', true); }
         if (a === 'chiudiStorico') UI.showScreen('storico', false);
+        if (a === 'novita') this.apriNovita();
+        if (a === 'chiudiNovita') UI.showScreen('novita', false);
         if (a === 'fineTT') this.fineTimeTrial();
         if (a === 'pad') this.padUI.apri();
         if (a === 'photo') { this.setPause(false); this.togglePhoto(); }
@@ -490,6 +508,12 @@ class App {
   }
 
   toMenu() {
+    // 21-11 sera (Gabriele): dal time trial col «Menu principale» un giro da record non si perde: prima la schermata della
+    // sessione con il nome, poi (dal suo pulsante «Menu») il menu
+    if (this.mode === 'race' && this.race?.timeTrial && !this.player.finished && REC.posizione(this.pistaRecord(), 'tempo', this.player.bestValido ?? Infinity) >= 0) {
+      this.fineTimeTrial(); return;
+    }
+    $id('rrecord')?._confermaNome?.();    // record in attesa del nome: si salva con quello scritto
     this.setPause(false);
     this.photo && this.togglePhoto();
     UI.showScreen('results', false);
@@ -501,23 +525,36 @@ class App {
   }
 
   // ---------------------------------------------------------------- record
-  /** tipo di comando in uso adesso (per i record e il ghost mostrati) */
-  comandoMenu() { return this.pad && this.pad.inUso(this.input.ultimaTastiera) ? 'controller' : 'tastiera'; }
-  /** categoria del giro migliore valido del giocatore (tastiera se il giro ne ha usata, altrimenti controller) */
-  categoriaMigliore(p, modo) {
+  /** comando del giro migliore valido del giocatore (tastiera se il giro ne ha usata, altrimenti controller): dal 21-11
+   *  non separa più le classifiche, si mostra col simbolo accanto al tempo */
+  comandoMigliore(p) {
     const best = p.bestValido ?? Infinity;
     const k = p.lapTimes.findIndex((t, i) => t === best && (this.race._validi || [])[i] !== false);
-    return REC.categoria(modo, this._catGiri[k] || this.input.comando);
+    return this._catGiri[k] || this.input.comando;
   }
 
-  /** tabella dei record (primi 5) per la pista, la modalità e il comando del menu */
+  /** tabella dei record (primi 5) per la pista e la modalità del menu */
   recordMenu() {
     const el = $id('mrecord');
     if (!el || !this.piste) return;
-    const s = this.settings, pista = this.pistaId(), cat = REC.categoria(s.modo, this.comandoMenu());
-    el.innerHTML = `<div class="rec-sub">${this.nomiPiste?.[pista] || pista} · ${REC.nomeCategoria(cat)} · giro migliore</div>` +
-      REC.htmlBoard(REC.board(pista, cat), -1, 5);
+    const s = this.settings, pista = this.pistaId(), cat = REC.categoria(s.modo);
+    // 21-11: una classifica per versione della pista; l'attuale in vista, le vecchie dalla tendina (si torna all'attuale
+    // cambiando pista)
+    const storia = storiaPista(pista), att = storia.at(-1).v;
+    if (this._recV?.pista !== pista) this._recV = { pista, v: att };
+    const v = storia.some((e) => e.v === this._recV.v) ? this._recV.v : att;
+    const data = (d) => (d ? ` · dal ${d.slice(8, 10)}-${d.slice(5, 7)}-${d.slice(0, 4)}` : '');
+    const scelta = storia.length > 1
+      ? `<select id="mrecv" title="Versione della pista: quando cambia in un modo che sposta i tempi, la classifica riparte">${[...storia].reverse().map((e) => `<option value="${e.v}" ${e.v === v ? 'selected' : ''}>v${e.v}${e.v === att ? ' (attuale)' : data(e.dal)}</option>`).join('')}</select>`
+      : `<span title="Versione della pista: quando cambia in un modo che sposta i tempi, la classifica riparte">v${att}</span>`;
+    el.innerHTML = `<div class="rec-sub">${this.nomiPiste?.[pista] || pista} ${scelta} · ${REC.nomeCategoria(cat)} · giro migliore</div>` +
+      REC.htmlBoard(REC.board(this.pistaRecord(v), cat), -1, 5);
+    const sel = $id('mrecv');
+    if (sel) { sel.onchange = () => { this._recV = { pista, v: +sel.value }; this.recordMenu(); }; sel.onkeydown = (e) => e.stopPropagation(); }
   }
+
+  /** pannello «Novità» (CHANGELOG.md) */
+  apriNovita() { const el = $id('novtab'); if (!el) return; mostraNovita(el); UI.showScreen('novita', true); }
 
   /**
    * all'arrivo: storico subito; il record (se il giro migliore pulito entra nei primi 10) chiede le iniziali
@@ -525,27 +562,28 @@ class App {
    */
   salvaRecord(race, pos) {
     const p = race.player, s = this.settings, pista = this.pistaId(), fisica = s.fisica || 'arcade';
-    const best = p.bestValido ?? Infinity, cat = this.categoriaMigliore(p, 'gara');
+    const vPista = versionePista(pista), pk = this.pistaRecord(vPista);
+    const best = p.bestValido ?? Infinity, cat = REC.categoria('gara'), comando = this.comandoMigliore(p);
     REC.aggiungiStorico({
-      data: new Date().toISOString(), pista, fisica, comando: cat.split('|')[1], guida: MODELLO.k, giri: race.laps, diff: s.diff,
+      data: new Date().toISOString(), pista, vPista, gioco: VERSIONE, fisica, comando, guida: MODELLO.k, giri: race.laps, diff: s.diff,
       pos: race.results().findIndex((r) => r.car === p) + 1 || pos,
       tempo: p.finishTime + (p.pen || 0), pen: p.pen || 0, best: p.best, bestValido: Number.isFinite(best),
       auto: p.spec.nome, meteo: s.meteo, ora: s.ora,
     });
-    const k = REC.posizione(pista, cat, best);
-    const intest = `<h4>Record · ${this.nomiPiste?.[pista] || pista} · ${REC.nomeCategoria(cat)}</h4>`;
+    const k = REC.posizione(pk, cat, best);
+    const intest = `<h4>Record · ${this.nomeRecord(vPista)} · ${REC.nomeCategoria(cat)}</h4>`;
     return async () => {
       const el = $id('rrecord');
       if (!el) return;
       if (k < 0) {
         const nota = Number.isFinite(best) ? `Il tuo giro migliore pulito: ${UI.fmt(best)}` : 'Nessun giro pulito in questa gara (uscite o rimesse in pista): non vale per i record.';
-        el.innerHTML = intest + `<p class="rec-vuoto">${nota}</p>` + REC.htmlBoard(REC.board(pista, cat), -1, 5);
+        el.innerHTML = intest + `<p class="rec-vuoto">${nota}</p>` + REC.htmlBoard(REC.board(pk, cat), -1, 5);
         return;
       }
       this.audio.ready && this.audio.lap && this.audio.lap(true);
-      const nome = await REC.chiediIniziali(el, `NUOVO RECORD! ${k + 1}° POSTO · ${UI.fmt(best)}`, REC.ultimoNome());
-      const idx = REC.aggiungiRecord(pista, cat, { nome, tempo: best, auto: p.spec.nome, meteo: s.meteo, ora: s.ora, fisica, guida: MODELLO.k, data: new Date().toISOString() });
-      el.innerHTML = intest + REC.htmlBoard(REC.board(pista, cat), idx);
+      const nome = await REC.chiediNome(el, `NUOVO RECORD! ${k + 1}° POSTO · ${UI.fmt(best)}`, REC.ultimoNome());
+      const idx = REC.aggiungiRecord(pk, cat, { nome, tempo: best, comando, auto: p.spec.nome, meteo: s.meteo, ora: s.ora, fisica, guida: MODELLO.k, vPista, gioco: VERSIONE, data: new Date().toISOString() });
+      el.innerHTML = intest + REC.htmlBoard(REC.board(pk, cat), idx);
       this.recordMenu();
     };
   }
@@ -573,7 +611,7 @@ class App {
     UI.showScreen('hud', false);
     $id('rrecord').innerHTML = '';
     if (!this.photo) UI.showScreen('results', true);
-    REC.aggiungiStorico({ data: new Date().toISOString(), pista: this.pistaId(), fisica: this.settings.fisica || 'arcade', comando: this.input.comando, guida: MODELLO.k, giri: race.laps, diff: this.settings.diff, pos: 'RIT', tempo: Infinity, pen: this.player.pen || 0, best: this.player.best, bestValido: Number.isFinite(this.player.bestValido ?? Infinity), auto: this.player.spec.nome, meteo: this.settings.meteo, ora: this.settings.ora });
+    REC.aggiungiStorico({ data: new Date().toISOString(), pista: this.pistaId(), vPista: versionePista(this.pistaId()), gioco: VERSIONE, fisica: this.settings.fisica || 'arcade', comando: this.input.comando, guida: MODELLO.k, giri: race.laps, diff: this.settings.diff, pos: 'RIT', tempo: Infinity, pen: this.player.pen || 0, best: this.player.best, bestValido: Number.isFinite(this.player.bestValido ?? Infinity), auto: this.player.spec.nome, meteo: this.settings.meteo, ora: this.settings.ora });
   }
 
   /** fine della sessione di time trial: elenco dei giri, record (iniziali) e storico */
@@ -585,20 +623,21 @@ class App {
     p.finished = true;
     UI.showScreen('hud', false);
     const pista = this.pistaId(), fisica = s.fisica || 'arcade';
-    const best = p.bestValido ?? Infinity, cat = this.categoriaMigliore(p, 'tempo');
+    const vPista = versionePista(pista), pk = this.pistaRecord(vPista);
+    const best = p.bestValido ?? Infinity, cat = REC.categoria('tempo'), comando = this.comandoMigliore(p);
     $id('rtitle').textContent = `Time trial · ${this.nomiPiste?.[pista] || pista}`;
     const giri = p.lapTimes;
     const validi = race._validi || [];
     $id('rtable').innerHTML = `<tr><th>Giro</th><th>Tempo</th><th></th></tr>` + (giri.length ? giri.map((t, i) => `<tr class="${t === best ? 'me' : ''}"><td class="p">${i + 1}</td><td>${UI.fmt(t)}</td><td>${validi[i] === false ? '<span class="pen">non valido</span>' : t === best ? 'migliore' : ''}</td></tr>`).join('') : '<tr><td colspan="3">Nessun giro completato.</td></tr>');
-    if (giri.length) REC.aggiungiStorico({ data: new Date().toISOString(), tipo: 'tempo', pista, fisica, comando: cat.split('|')[1], guida: MODELLO.k, giri: giri.length, diff: '—', pos: '—', tempo: best, pen: 0, best: p.best, bestValido: Number.isFinite(best), auto: p.spec.nome, meteo: s.meteo, ora: s.ora });
+    if (giri.length) REC.aggiungiStorico({ data: new Date().toISOString(), tipo: 'tempo', pista, vPista, gioco: VERSIONE, fisica, comando, guida: MODELLO.k, giri: giri.length, diff: '—', pos: '—', tempo: best, pen: 0, best: p.best, bestValido: Number.isFinite(best), auto: p.spec.nome, meteo: s.meteo, ora: s.ora });
     UI.showScreen('results', true);
-    const k = REC.posizione(pista, cat, best);
+    const k = REC.posizione(pk, cat, best);
     const el = $id('rrecord');
-    const intest = `<h4>Record · ${this.nomiPiste?.[pista] || pista} · ${REC.nomeCategoria(cat)}</h4>`;
-    if (k < 0) { el.innerHTML = intest + REC.htmlBoard(REC.board(pista, cat), -1, 5); return; }
-    REC.chiediIniziali(el, `NUOVO RECORD! ${k + 1}° POSTO · ${UI.fmt(best)}`, REC.ultimoNome()).then((nome) => {
-      const idx = REC.aggiungiRecord(pista, cat, { nome, tempo: best, auto: p.spec.nome, meteo: s.meteo, ora: s.ora, fisica, guida: MODELLO.k, data: new Date().toISOString() });
-      el.innerHTML = intest + REC.htmlBoard(REC.board(pista, cat), idx);
+    const intest = `<h4>Record · ${this.nomeRecord(vPista)} · ${REC.nomeCategoria(cat)}</h4>`;
+    if (k < 0) { el.innerHTML = intest + REC.htmlBoard(REC.board(pk, cat), -1, 5); return; }
+    REC.chiediNome(el, `NUOVO RECORD! ${k + 1}° POSTO · ${UI.fmt(best)}`, REC.ultimoNome()).then((nome) => {
+      const idx = REC.aggiungiRecord(pk, cat, { nome, tempo: best, comando, auto: p.spec.nome, meteo: s.meteo, ora: s.ora, fisica, guida: MODELLO.k, vPista, gioco: VERSIONE, data: new Date().toISOString() });
+      el.innerHTML = intest + REC.htmlBoard(REC.board(pk, cat), idx);
       this.recordMenu();
     });
   }
@@ -769,12 +808,12 @@ class App {
         if (race.timeTrial) {
           this.audio.ready && this.audio.lap(e.best);
           const g = this.ghost && this.ghost.g;
-          // il ghost si salva per tipo di comando: si confronta con quello salvato per il comando del giro
-          const vecchio = e.valido && e.campioni && e.campioni.length > 20 ? caricaGhost(this.pistaId(), com) : null;
+          // un ghost solo per pista (21-11): si confronta con quello salvato, fatto con qualunque comando
+          const vecchio = e.valido && e.campioni && e.campioni.length > 20 ? caricaGhost(this.pistaRecord()) : null;
           if (e.valido && e.campioni && e.campioni.length > 20 && (!vecchio || e.tempo < vecchio.tempo)) {
-            const nuovo = salvaGhost(this.pistaId(), com, e.tempo, e.campioni, { specIdx: this.player.specIdx, specId: this.player.spec.id, livery: this.player.livery, auto: this.player.spec.nome, comando: com });
+            const nuovo = salvaGhost(this.pistaRecord(), e.tempo, e.campioni, { specIdx: this.player.specIdx, specId: this.player.spec.id, livery: this.player.livery, auto: this.player.spec.nome, comando: com });
             if (nuovo && this.ghost) this.ghost.set(nuovo);
-            this.hud.message(`${UI.fmt(e.tempo)} · GIRO MIGLIORE${nuovo ? ' · GHOST AGGIORNATO' : ''}`, 2600);
+            this.hud.message(`${UI.fmt(e.tempo)} · GIRO MIGLIORE · ${nuovo ? 'GHOST AGGIORNATO' : 'GHOST NON SALVATO: MEMORIA DEL BROWSER PIENA'}`, nuovo ? 2600 : 4500);
           } else this.hud.message(`${UI.fmt(e.tempo)}${e.valido ? '' : ' · NON VALIDO'}${g ? ` · ${e.tempo - g.tempo >= 0 ? '+' : '−'}${Math.abs(e.tempo - g.tempo).toFixed(3)}` : ''}`, 2200);
         } else {
           this.audio.ready && this.audio.lap(e.best);

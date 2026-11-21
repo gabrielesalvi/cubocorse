@@ -1,37 +1,93 @@
-// Ghost del time trial: il giro migliore (valido) per pista e tipo di comando, salvato nel browser e ripercorso da
-// un'auto trasparente in sincrono col giro del giocatore. Fornisce anche il distacco in tempo reale.
-// Fase 0 (20-11): chiave pista (con la versione) × comando (tastiera | controller), come i record; prima pista × fisica.
-// Un ghost vecchio (v1, arcade) vale per la tastiera finché non ne salvi uno nuovo.
+// Ghost del time trial: il giro migliore (valido) per pista, salvato nel browser e ripercorso da un'auto trasparente in
+// sincrono col giro del giocatore. Fornisce anche il distacco in tempo reale.
+// 21-11 (Cubo Corse 1.0): la pista porta la sua versione («roncadelle-B@v2», ui/versioni.js). Il ghost di una versione vecchia
+// non fa da avversario su quella nuova (potrebbe passare dove ora c'è un muro); quelli di prima della 1.0 valgono per la v1.
+// 21-11 sera (Gabriele): un ghost solo per pista, qualunque sia il comando (tastiera e controller competono insieme):
+// chiave v4; alla prima lettura vale il più veloce fra quelli salvati prima per tastiera e per controller (v3, v2, v1).
 import * as THREE from 'three';
 import { creaVisuale } from './auto.js';
+import { versionePista } from '../ui/versioni.js';
 
-const KEY = (pista, comando) => `cubo-corse-ghost-v2|${pista}|${comando || 'tastiera'}`;
-const KEY_V1 = (pista) => `cubo-corse-ghost-v1|${pista}|arcade`;
+const KEY = (pista) => `cubo-corse-ghost-v4|${pista}`;
+const VECCHIE = (pista) => {
+  const k = [`cubo-corse-ghost-v3|${pista}|tastiera`, `cubo-corse-ghost-v3|${pista}|controller`];
+  if (pista.endsWith('@v1')) { const b = pista.slice(0, -3); k.push(`cubo-corse-ghost-v2|${b}|tastiera`, `cubo-corse-ghost-v2|${b}|controller`, `cubo-corse-ghost-v1|${b}|arcade`); }
+  return k;
+};
 // canali di un campione: t (s dal via del giro), s (m percorsi nel giro), x, y, z, yaw, beccheggio, rollio, sterzo
 const CANALI = 9, DEC = [3, 2, 2, 2, 2, 3, 3, 3, 3];
 
-export function caricaGhost(pista, comando) {
+export function caricaGhost(pista) {
+  const ok = (g) => g && Array.isArray(g.dati) && g.dati.length >= CANALI * 10 && Number.isFinite(g.tempo);
   try {
-    let g = JSON.parse(localStorage.getItem(KEY(pista, comando)) || 'null');
-    if (!g && (comando || 'tastiera') === 'tastiera') g = JSON.parse(localStorage.getItem(KEY_V1(pista)) || 'null');
-    if (!g || !Array.isArray(g.dati) || g.dati.length < CANALI * 10) return null;
-    return g;
+    const g = JSON.parse(localStorage.getItem(KEY(pista)) || 'null');
+    if (ok(g)) return g;
+    let best = null;
+    for (const k of VECCHIE(pista)) { try { const v = JSON.parse(localStorage.getItem(k) || 'null'); if (ok(v) && (!best || v.tempo < best.tempo)) best = v; } catch { /* rovinato */ } }
+    return best;
   } catch {
     return null;
   }
 }
 
-/** salva il giro (campioni [[t,s,x,y,z,yaw,pitch,roll,delta], …]); ritorna l'oggetto salvato, o null se lo spazio non basta */
-export function salvaGhost(pista, comando, tempo, campioni, info) {
+/** pista@vN a cui appartiene una chiave di ghost (qualunque formato), o null */
+function pistaDi(k) {
+  let m = k.match(/^cubo-corse-ghost-v4\|(.+)$/); if (m) return m[1];
+  m = k.match(/^cubo-corse-ghost-v3\|(.+)\|[a-z]+$/); if (m) return m[1];
+  m = k.match(/^cubo-corse-ghost-v[12]\|(.+)\|[a-z]+$/); if (m) return m[1] + '@v1';
+  return null;
+}
+const tempoDi = (k) => { try { const g = JSON.parse(localStorage.getItem(k) || 'null'); return g && Array.isArray(g.dati) && Number.isFinite(g.tempo) ? g.tempo : null; } catch { return null; } };
+
+/**
+ * 21-11 sera (Gabriele, punto 4): spazio del browser finito (~5 MB per sito, un ghost di Roncadelle ~300 KB).
+ * passo 1: per ogni pista (con la versione) resta un solo ghost, il più veloce, sotto la chiave v4: via le copie per
+ *          comando (v3) e quelle di prima della 1.0 (v2, v1) che lo doppiano;
+ * passo 2: via i ghost delle versioni superate delle piste (nel gioco non si vedono più; i record restano).
+ * Mai il ghost della pista che si sta salvando. Ritorna quante chiavi ha tolto.
+ */
+export function liberaSpazio(passo, salvo = null) {
+  const gruppi = {};
+  for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i), p = pistaDi(k || ''); if (p) (gruppi[p] ||= []).push(k); }
+  let tolte = 0;
+  for (const [p, chiavi] of Object.entries(gruppi)) {
+    if (p === salvo) continue;
+    if (passo === 1) {
+      const conTempo = chiavi.map((k) => [k, tempoDi(k)]).sort((x, y) => (x[1] ?? Infinity) - (y[1] ?? Infinity));
+      const [migliore, tm] = conTempo[0];
+      for (const [k] of conTempo.slice(1)) { localStorage.removeItem(k); tolte++; }
+      if (tm != null && migliore !== KEY(p)) {     // il migliore passa sotto la chiave v4 (lo spazio delle copie è già libero)
+        try { localStorage.setItem(KEY(p), localStorage.getItem(migliore)); localStorage.removeItem(migliore); } catch { /* resta dov'è: si legge lo stesso */ }
+      } else if (tm == null) { localStorage.removeItem(migliore); tolte++; }   // rovinato
+    } else {
+      const m = p.match(/^(.+)@v(\d+)$/);
+      if (m && +m[2] < versionePista(m[1])) { for (const k of chiavi) { localStorage.removeItem(k); tolte++; } }
+    }
+  }
+  return tolte;
+}
+
+/** salva il giro (campioni [[t,s,x,y,z,yaw,pitch,roll,delta], …]); ritorna l'oggetto salvato, o null se lo spazio non basta
+ *  nemmeno dopo aver liberato le copie (liberaSpazio) */
+export function salvaGhost(pista, tempo, campioni, info) {
   const dati = [];
   for (const c of campioni) for (let k = 0; k < CANALI; k++) dati.push(+c[k].toFixed(DEC[k]));
-  const g = { tempo, data: new Date().toISOString(), ...info, dati };
-  try {
-    localStorage.setItem(KEY(pista, comando), JSON.stringify(g));
+  const g = { tempo, data: new Date().toISOString(), ...info, dati }, testo = JSON.stringify(g);
+  const prova = () => {
+    localStorage.setItem(KEY(pista), testo);
+    // le copie vecchie della stessa pista ora sono superate (il nuovo è più veloce di tutte: main.js confronta con caricaGhost)
+    for (const k of VECCHIE(pista)) localStorage.removeItem(k);
     return g;
-  } catch {
-    return null;
+  };
+  for (const passo of [0, 1, 2]) {
+    try {
+      if (passo) { for (const k of VECCHIE(pista)) localStorage.removeItem(k); const n = liberaSpazio(passo, pista); console.info(`ghost: memoria piena, tolte ${n} copie (passo ${passo})`); }
+      return prova();
+    } catch (e) {
+      if (passo === 2) { console.warn('ghost non salvato:', e); return null; }
+    }
   }
+  return null;
 }
 
 export class Ghost {

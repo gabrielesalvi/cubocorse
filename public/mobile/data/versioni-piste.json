@@ -1,0 +1,89 @@
+{
+ "formato": "versioni-piste/1",
+ "nota": "versioni delle piste per i record (tools/versioni-piste.mjs); gioco = versione in cui è comparsa (la riempie tools/rilascio.py)",
+ "fisica": {
+  "n": 1,
+  "dal": "2026-11-21",
+  "impronta": "7323567c06df",
+  "nota": "prima versione ufficiale (Cubo Corse 1.0)"
+ },
+ "piste": {
+  "porto": [
+   {
+    "v": 1,
+    "dal": "2026-11-21",
+    "gioco": "1.0.0",
+    "fisica": 1,
+    "pacchetto": null,
+    "impronta": "355420d6225d",
+    "nota": "prima versione ufficiale (Cubo Corse 1.0)"
+   }
+  ],
+  "colline": [
+   {
+    "v": 1,
+    "dal": "2026-11-21",
+    "gioco": "1.0.0",
+    "fisica": 1,
+    "pacchetto": null,
+    "impronta": "d06e63a91fc1",
+    "nota": "prima versione ufficiale (Cubo Corse 1.0)"
+   }
+  ],
+  "monza": [
+   {
+    "v": 1,
+    "dal": "2026-11-21",
+    "gioco": "1.0.0",
+    "fisica": 1,
+    "pacchetto": null,
+    "impronta": "2a1be4dd2b2f",
+    "nota": "prima versione ufficiale (Cubo Corse 1.0)"
+   }
+  ],
+  "roncadelle-A": [
+   {
+    "v": 1,
+    "dal": "2026-11-21",
+    "gioco": "1.0.0",
+    "fisica": 1,
+    "pacchetto": 1,
+    "impronta": "2c333029b52d",
+    "nota": "prima versione ufficiale (Cubo Corse 1.0)"
+   }
+  ],
+  "roncadelle-B": [
+   {
+    "v": 1,
+    "dal": "2026-11-21",
+    "gioco": "1.0.0",
+    "fisica": 1,
+    "pacchetto": 1,
+    "impronta": "bc465070013b",
+    "nota": "prima versione ufficiale (Cubo Corse 1.0)"
+   }
+  ],
+  "roncadelle-nenni-A": [
+   {
+    "v": 1,
+    "dal": "2026-11-21",
+    "gioco": "1.0.0",
+    "fisica": 1,
+    "pacchetto": 1,
+    "impronta": "74c08e52a558",
+    "nota": "prima versione ufficiale (Cubo Corse 1.0)"
+   }
+  ],
+  "roncadelle-nenni-B": [
+   {
+    "v": 1,
+    "dal": "2026-11-21",
+    "gioco": "1.0.0",
+    "fisica": 1,
+    "pacchetto": 1,
+    "impronta": "966c206b4d3d",
+    "nota": "prima versione ufficiale (Cubo Corse 1.0)"
+   }
+  ]
+ }
+}

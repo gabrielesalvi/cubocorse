@@ -1,0 +1,13 @@
+{
+ "descrizione": "percorsi importati da Circuit Studio (tools/importa-cs.py): il menu del gioco li mostra come piste",
+ "roncadelle": [
+  {
+   "id": "roncadelle",
+   "nome": "Tracciato completo (17 curve)"
+  },
+  {
+   "id": "roncadelle-nenni",
+   "nome": "Variante Nenni (via Berlinguer e via Nenni)"
+  }
+ ]
+}

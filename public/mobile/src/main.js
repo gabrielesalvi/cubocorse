@@ -809,6 +809,23 @@ class App {
       if (W.conSpecchio) W.conSpecchio(this.pVis, disegna); else disegna();
     }
     if (this.mode === 'race' && simulate) this.risoluzioneDinamica(dt);
+    this.fpsAngolo(dt);
+  }
+
+  /**
+   * fps fissi in un angolo durante la gara (22-11, Gabriele: sul telefono non c'è il tasto F). Si vedono sui telefoni e con
+   * ?fps=1; media degli ultimi 0,5 s, verde da 50 in su, giallo da 30, rosso sotto.
+   */
+  fpsAngolo(dt) {
+    if (this._fpsOn === undefined) { this._fpsOn = document.body.classList.contains('tocco') || Q.get('fps') === '1'; document.body.classList.toggle('con-fps', this._fpsOn); }
+    if (!this._fpsOn || this.mode !== 'race') return;
+    const F = this._fps || (this._fps = { t: 0, n: 0, el: $id('fpsbox') });
+    F.t += dt; F.n++;
+    if (F.t < 0.5 || !F.el) return;
+    const fps = Math.round(F.n / F.t);
+    F.el.textContent = `${fps} fps`;
+    F.el.className = fps >= 50 ? 'ok' : fps >= 30 ? 'medio' : 'basso';
+    F.t = 0; F.n = 0;
   }
 
   handleEvents(dt) {

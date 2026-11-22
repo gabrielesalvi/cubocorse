@@ -512,3 +512,9 @@ body.tel-gas-auto #tocco .tt.gas, body.tel-freno-auto #tocco .tt.freno { opacity
 #avvisohome button { flex: none; width: 34px; height: 34px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: none; color: #fff; font-size: 16px; }
 #menu button.link.minstalla { margin: 0 0 0 auto; align-self: center; border-color: rgba(255,210,63,.6); color: #ffd23f; }
 #menu button.link.minstalla + .mnovita { margin-left: 8px; }
+/* fps fissi in un angolo (22-11): sui telefoni e con ?fps=1 */
+#fpsbox { display: none; position: absolute; left: max(6px, env(safe-area-inset-left)); top: max(4px, env(safe-area-inset-top)); z-index: 6; padding: 1px 7px; border-radius: 6px;
+  background: rgba(0,0,0,.6); font: 700 13px/1.4 ui-monospace, Menlo, Consolas, monospace; text-shadow: none; color: #d8f5d0; pointer-events: none; }
+#fpsbox.ok { color: #6cf08f; } #fpsbox.medio { color: #ffd23f; } #fpsbox.basso { color: #ff6a5a; }
+body.tocco #fpsbox, body.con-fps #fpsbox { display: block; }
+body.tocco #hud .tl { top: 28px; }

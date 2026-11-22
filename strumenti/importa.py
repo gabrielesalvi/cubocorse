@@ -18,9 +18,11 @@ ORIGINE = Path.home() / '.openclaw/workspace/projects/cubo-corse'
 DEST = RADICE / 'public'
 RISORSE = RADICE / 'risorse'
 DOMINIO = 'cubocorse.gabrielesalvi.com'
+# 22-11 (fase 2d): anche manifest.webmanifest, sw.js e icone/ (app sulla schermata Home, gioco tenuto sul telefono)
 # 22-11 (fase 1): anche data/nomi-vietati.json (filtro dei nomi dei record)
 # 21-11 (Cubo Corse 1.0): anche CHANGELOG.md (pannello «Novità») e data/versioni-piste.json (record per versione della pista)
-PRENDI = ('index.html', 'style.css', 'src/', 'vendor/', 'data/monza.json', 'data/versioni-piste.json', 'data/nomi-vietati.json', 'CHANGELOG.md', 'cs/viewer/', 'cs/pacchetti/')
+PRENDI = ('index.html', 'style.css', 'src/', 'vendor/', 'data/monza.json', 'data/versioni-piste.json', 'data/nomi-vietati.json', 'CHANGELOG.md', 'cs/viewer/', 'cs/pacchetti/',
+          'manifest.webmanifest', 'sw.js', 'icone/')
 GOOGLE = '''  <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,500;0,600;0,800;1,700;1,800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />

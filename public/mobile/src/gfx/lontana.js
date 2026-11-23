@@ -99,7 +99,7 @@ class SceltaLontana extends THREE.Object3D {
  * l'indice riordinato. Stessa immagine (stesso materiale), meno chiamate: alla qualità Telefono la carrozzeria a cubetti
  * passa da 7 a 4 pezzi e ogni ruota da 2 a 1. Ritorna la geometria nuova, o null se non c'è niente da unire.
  */
-function unisciGruppi(geo, mats) {
+export function unisciGruppi(geo, mats) {
   if (!geo.index || !Array.isArray(mats) || geo.groups.length < 2) return null;
   const canon = new Map(), primo = mats.map((m, i) => { if (!m) return i; const k = chiave(m); if (!canon.has(k)) canon.set(k, i); return canon.get(k); });
   if (!geo.groups.some((g) => primo[g.materialIndex] !== g.materialIndex)) return null;

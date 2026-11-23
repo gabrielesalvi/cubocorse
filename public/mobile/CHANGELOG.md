@@ -29,6 +29,7 @@ e quella di prima resta consultabile dalla tendina dei record.
 - Il menu si legge e si usa anche sugli schermi piccoli.
 - Le piste si caricano più in fretta, Monza soprattutto.
 - Le auto avversarie costano meno da disegnare: sul telefono resta più margine.
+- Anche gli alberi costano meno da disegnare, a Monza la metà di prima: stessa immagine.
 
 ### Record
 - I nomi con parolacce o offese non si possono usare: il gioco chiede di sceglierne un altro.

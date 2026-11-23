@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { meshGrid, voxelMaterials, MAT, VoxelGrid } from './voxel.js';
 import { Crowd } from './crowd.js';
 import { fbm } from './trackmesh.js';
+import { unisciGruppi } from './lontana.js';
 
 function mulberry(a) {
   return function () {
@@ -116,6 +117,7 @@ function byTile(list, size = TILE) {
  * d'ingombro piccola e viene scartata quando è fuori inquadratura o fuori dal cono d'ombra).
  * t.c (THREE.Color, facoltativo) = colore per istanza.
  */
+const UNITE = new WeakMap();   // geometria voxel → (materiali → copia coi gruppi equivalenti uniti, null = niente da unire)
 function instanced(geo, mats, list, castShadow = true, opts = {}) {
   const o = new THREE.Object3D();
   if (CLEAR && opts.guard !== false) {
@@ -127,6 +129,14 @@ function instanced(geo, mats, list, castShadow = true, opts = {}) {
     });
   }
   if (!list.length) return null;
+  // 23-11 (alberi di Monza): materiali equivalenti uniti in un gruppo solo (lontana.js unisciGruppi). Alla qualità Telefono e
+  // Bassa tronco e chioma hanno la stessa luce: ogni albero vicino passa da 2 chiamate a 1, stessa immagine
+  if (Array.isArray(mats) && geo.groups.length > 1) {
+    let perMat = UNITE.get(geo);
+    if (!perMat) UNITE.set(geo, (perMat = new Map()));   // per serie di materiali: cambiando qualità le serie cambiano
+    if (!perMat.has(mats)) perMat.set(mats, unisciGruppi(geo, mats));
+    geo = perMat.get(mats) || geo;
+  }
   const out = new THREE.Group();
   for (const part of byTile(list, opts.tile || 360)) {
     const im = new THREE.InstancedMesh(geo, mats, part.length);
@@ -357,12 +367,40 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     const g1 = new THREE.BoxGeometry(0.6, 3, 0.6); g1.translate(0, 1.5, 0);
     const g2 = new THREE.BoxGeometry(4.2, 4.6, 4.2); g2.translate(0, 5.2, 0);
     const g3 = new THREE.BoxGeometry(2.8, 2.2, 2.8); g3.translate(0.4, 8.2, -0.3);
-    const im1 = instanced(g1, new THREE.MeshStandardMaterial({ color: 0x5a4330, roughness: 1 }), simpleTrees, false, { name: 'alberi-lontani' });
-    const fol = new THREE.MeshStandardMaterial({ color: 0x41672f, roughness: 0.95 });
-    const merged = (await import('three/addons/utils/BufferGeometryUtils.js')).mergeGeometries([g2, g3]);
+    // 23-11 (alberi di Monza): tronco e chioma in UNA mesh istanziata (prima due: 40-46 chiamate a Monza, ora la metà). Il
+    // colore di ogni albero (instanceColor) tinge solo la chioma, il tronco ha la sua ruvidezza e non fa ombra: stessa
+    // immagine di prima
+    const { mergeGeometries } = await import('three/addons/utils/BufferGeometryUtils.js');
+    const tinta = (g, hex, k) => {
+      const n = g.attributes.position.count, c = new THREE.Color(hex), col = new Float32Array(n * 3);
+      for (let i = 0; i < n; i++) c.toArray(col, i * 3);
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      g.setAttribute('chioma', new THREE.BufferAttribute(new Float32Array(n).fill(k), 1));
+      return g;
+    };
+    const geoAlb = mergeGeometries([tinta(g1, 0x5a4330, 0), tinta(g2, 0x41672f, 1), tinta(g3, 0x41672f, 1)]);
+    [g1, g2, g3].forEach((g) => g.dispose());
+    const matAlb = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95 });
+    matAlb.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float chioma;\nvarying float vChioma;')
+        .replace('#include <color_vertex>', 'vColor = vec3(1.0);\nvColor *= color;\n#ifdef USE_INSTANCING_COLOR\nvColor *= mix(vec3(1.0), instanceColor.xyz, chioma);\n#endif\nvChioma = chioma;');   // color_vertex di three r170 con la tinta solo sulla chioma
+      sh.fragmentShader = sh.fragmentShader
+        .replace('#include <common>', '#include <common>\nvarying float vChioma;')
+        .replace('#include <roughnessmap_fragment>', 'float roughnessFactor = mix(1.0, roughness, vChioma);');
+    };
+    matAlb.customProgramCacheKey = () => 'alberi-lontani';
+    // ombra: solo la chioma (prima il tronco aveva castShadow = false)
+    const ombraAlb = new THREE.MeshDepthMaterial({ depthPacking: THREE.RGBADepthPacking });
+    ombraAlb.onBeforeCompile = (sh) => {
+      sh.vertexShader = sh.vertexShader
+        .replace('#include <common>', '#include <common>\nattribute float chioma;')
+        .replace('#include <project_vertex>', '#include <project_vertex>\nif (chioma < 0.5) gl_Position = vec4(0.0, 0.0, 2.0, 1.0);');
+    };
+    ombraAlb.customProgramCacheKey = () => 'alberi-lontani-ombra';
     const chiome = simpleTrees.map((t) => ({ ...t, c: new THREE.Color().setHSL(0.27 + rnd() * 0.06, 0.38 + rnd() * 0.12, 0.26 + rnd() * 0.08) }));
-    const im2 = instanced(merged, fol, chiome, true, { name: 'alberi-lontani' });
-    group.add(im1, im2);
+    const imA = instanced(geoAlb, matAlb, chiome, true, { name: 'alberi-lontani' });
+    if (imA) { imA.traverse((o) => { if (o.isInstancedMesh) o.customDepthMaterial = ombraAlb; }); group.add(imA); }
   }
   const bm = batch.build();
   if (bm) group.add(bm);

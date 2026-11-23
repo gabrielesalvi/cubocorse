@@ -16,9 +16,18 @@ function mulberry(a) {
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 
 /** geometria (con gruppi per materiale) da un risultato di props */
+const RES_DI = new WeakMap();   // geometria → risultato di props, per farne la versione da lontano (Batcher)
 function geoOf(res) {
-  if (!res.geo) res.geo = meshGrid(res.grid, { scale: res.scale, origin: res.origin });
+  if (!res.geo) { res.geo = meshGrid(res.grid, { scale: res.scale, origin: res.origin }); RES_DI.set(res.geo, res); }
   return res.geo;
+}
+/** la stessa geometria senza l'ombreggiatura degli angoli (AO per vertice): metà dei triangoli (palazzi di Porto: 3.170 → 1.610
+ *  in media), perché le facce con AO diverso non si possono unire. Da lontano l'AO è largo meno di un pixel */
+function geoLontano(geo) {
+  const res = RES_DI.get(geo);
+  if (!res) return geo;
+  if (!res.geoL) res.geoL = meshGrid(res.grid, { scale: res.scale, origin: res.origin, ao: false });
+  return res.geoL;
 }
 
 /** spazio libero della pista in costruzione (Clearance di trackmesh), usato da Batcher e instanced() */
@@ -29,78 +38,133 @@ const _gm = new THREE.Matrix4();
 const TILE = 240;
 const tileKey = (x, z, size = TILE) => Math.floor(x / size) + ',' + Math.floor(z / size);
 
+// palazzi da lontano (23-11, Gabriele: «vai anche con i palazzi di Porto»): qualità con `palazziLontani` (Telefono) = oltre
+// quei metri dal riquadro la sua copia senza AO. ?palazzi=0 = mai, ?palazzi=<m> = altra distanza (per i confronti)
+const QP = new URLSearchParams(globalThis.location?.search || '').get('palazzi');
+
+/** un insieme di vertici e indici per materiale */
+const nuovoSecchio = () => ({ pos: [], nor: [], col: [], idx: [], nv: 0 });
+
 /**
  * Unisce tante geometrie voxel (con gruppi per materiale) in poche mesh, una per riquadro di TILE metri,
  * ciascuna con un gruppo per materiale. Una mesh unica per tutta la pista verrebbe disegnata sempre per intero.
+ * 23-11: geometria con indice (i quad hanno 4 vertici, non 6: un terzo di memoria in meno), materiali equivalenti in un
+ * gruppo solo (a Telefono e Bassa quasi tutti: meno chiamate) e, se `distLontana` è finita, anche la copia da lontano del
+ * riquadro (geoLontano) con lo scambio per distanza (RiquadroLontano).
  */
 class Batcher {
-  constructor() {
+  constructor(distLontana = Infinity) {
     this.tiles = new Map();
     this.v = new THREE.Vector3();
     this.n = new THREE.Vector3();
     this.nm = new THREE.Matrix3();
     this.count = 0;
+    this.distLontana = distLontana;
+    // con la copia da lontano riquadri più piccoli: il riquadro dove si guida, sempre completo, pesa meno
+    this.lato = Number.isFinite(distLontana) ? (+new URLSearchParams(globalThis.location?.search || '').get('lato') || 120) : TILE;
   }
   _tile(key) {
     let t = this.tiles.get(key);
     if (!t) {
-      t = [];
-      for (let m = 0; m < 9; m++) t.push({ pos: [], nor: [], col: [] });
+      t = { vicino: [], lontano: Number.isFinite(this.distLontana) ? [] : null };
+      for (let m = 0; m < 9; m++) { t.vicino.push(nuovoSecchio()); t.lontano?.push(nuovoSecchio()); }
       this.tiles.set(key, t);
     }
     return t;
   }
+  _copia(geo, matrix, per) {
+    const P = geo.attributes.position.array, N = geo.attributes.normal.array, C = geo.attributes.color.array, I = geo.index.array;
+    const remap = new Int32Array(geo.attributes.position.count);
+    for (const g of geo.groups) {
+      const out = per[g.materialIndex];
+      remap.fill(-1);
+      for (let k = g.start; k < g.start + g.count; k++) {
+        const i = I[k];
+        if (remap[i] < 0) {
+          remap[i] = out.nv++;
+          this.v.set(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]).applyMatrix4(matrix);
+          this.n.set(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]).applyMatrix3(this.nm).normalize();
+          out.pos.push(this.v.x, this.v.y, this.v.z);
+          out.nor.push(this.n.x, this.n.y, this.n.z);
+          out.col.push(C[i * 3], C[i * 3 + 1], C[i * 3 + 2]);
+        }
+        out.idx.push(remap[i]);
+      }
+    }
+  }
   /** aggiunge l'oggetto se non ingombra la pista; ritorna false se scartato */
   add(geo, matrix, guard = true) {
     if (guard && CLEAR && CLEAR.blocksGeo(geo, matrix)) { CLEAR.rejected++; return false; }
-    const P = geo.attributes.position.array, N = geo.attributes.normal.array, C = geo.attributes.color.array, I = geo.index.array;
     this.nm.getNormalMatrix(matrix);
-    const per = this._tile(tileKey(matrix.elements[12], matrix.elements[14]));
-    for (const g of geo.groups) {
-      const out = per[g.materialIndex];
-      for (let k = g.start; k < g.start + g.count; k++) {
-        const i = I[k];
-        this.v.set(P[i * 3], P[i * 3 + 1], P[i * 3 + 2]).applyMatrix4(matrix);
-        this.n.set(N[i * 3], N[i * 3 + 1], N[i * 3 + 2]).applyMatrix3(this.nm).normalize();
-        out.pos.push(this.v.x, this.v.y, this.v.z);
-        out.nor.push(this.n.x, this.n.y, this.n.z);
-        out.col.push(C[i * 3], C[i * 3 + 1], C[i * 3 + 2]);
-      }
-    }
+    const t = this._tile(tileKey(matrix.elements[12], matrix.elements[14], this.lato));
+    this._copia(geo, matrix, t.vicino);
+    if (t.lontano) this._copia(geoLontano(geo), matrix, t.lontano);
     this.count++;
     return true;
   }
+  /** una mesh dai secchi di un riquadro (null se vuota) */
+  _mesh(per, castShadow) {
+    let nv = 0, ni = 0;
+    for (const p of per) { nv += p.nv; ni += p.idx.length; }
+    if (!ni) return null;
+    const pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), col = new Float32Array(nv * 3);
+    const idx = nv > 65535 ? new Uint32Array(ni) : new Uint16Array(ni);
+    let geo = new THREE.BufferGeometry(), vo = 0, io = 0;
+    per.forEach((p, m) => {
+      if (!p.idx.length) return;
+      pos.set(p.pos, vo * 3); nor.set(p.nor, vo * 3); col.set(p.col, vo * 3);
+      for (let k = 0; k < p.idx.length; k++) idx[io + k] = p.idx[k] + vo;
+      geo.addGroup(io, p.idx.length, m);
+      vo += p.nv; io += p.idx.length;
+    });
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setIndex(new THREE.BufferAttribute(idx, 1));
+    const mats = voxelMaterials().list;
+    const unita = unisciGruppi(geo, mats);   // materiali equivalenti (lontana.js): stessa immagine, meno chiamate
+    if (unita) { geo.index = null; geo.dispose(); geo = unita; }
+    geo.computeBoundingSphere();
+    geo.computeBoundingBox();
+    const mesh = new THREE.Mesh(geo, mats);
+    mesh.castShadow = castShadow;
+    mesh.receiveShadow = true;
+    mesh.name = 'edifici-uniti';
+    return mesh;
+  }
   build(castShadow = true) {
     const out = new THREE.Group();
-    for (const per of this.tiles.values()) {
-      let total = 0;
-      for (const p of per) total += p.pos.length;
-      if (!total) continue;
-      const pos = new Float32Array(total), nor = new Float32Array(total), col = new Float32Array(total);
-      const geo = new THREE.BufferGeometry();
-      let o = 0;
-      per.forEach((p, m) => {
-        if (!p.pos.length) return;
-        pos.set(p.pos, o); nor.set(p.nor, o); col.set(p.col, o);
-        geo.addGroup(o / 3, p.pos.length / 3, m);
-        o += p.pos.length;
-      });
-      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-      geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3));
-      geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-      geo.computeBoundingSphere();
-      const mesh = new THREE.Mesh(geo, voxelMaterials().list);
-      mesh.castShadow = castShadow;
-      mesh.receiveShadow = true;
-      mesh.name = 'edifici-uniti';
-      out.add(mesh);
+    for (const t of this.tiles.values()) {
+      const vicino = this._mesh(t.vicino, castShadow);
+      if (!vicino) continue;
+      const lontano = t.lontano && this._mesh(t.lontano, castShadow);
+      if (!lontano) { out.add(vicino); continue; }
+      lontano.name = 'edifici-uniti-lontani';
+      out.add(new RiquadroLontano(vicino, lontano, this.distLontana));
     }
     this.tiles.clear();
     return out.children.length ? out : null;
   }
 }
 
-/** divide una lista di oggetti {x,z,…} per riquadro */
+/** sceglie a ogni disegno la mesh vicina o quella da lontano di un riquadro, dalla distanza della telecamera dalla scatola
+ *  del riquadro (non dal centro: i riquadri sono larghi 240 m) */
+class RiquadroLontano extends THREE.Object3D {
+  constructor(vicino, lontano, dist) {
+    super();
+    this.isLOD = true; this.autoUpdate = true; this.dist = dist; this.name = 'edifici-riquadro';
+    this.vicino = vicino; this.lontano = lontano; lontano.visible = false;
+    this.box = vicino.geometry.boundingBox.clone().union(lontano.geometry.boundingBox);
+    this._c = new THREE.Vector3(); this._b = new THREE.Box3();
+    this.add(vicino, lontano);
+  }
+  update(camera) {
+    const b = this._b.copy(this.box).applyMatrix4(this.matrixWorld);
+    const lon = b.distanceToPoint(this._c.setFromMatrixPosition(camera.matrixWorld)) > this.dist;
+    this.vicino.visible = !lon; this.lontano.visible = lon;
+  }
+}
+
 function byTile(list, size = TILE) {
   const m = new Map();
   for (const t of list) {
@@ -340,7 +404,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
   await nextFrame();
 
   // ---------------------------------------------------------- per circuito
-  const batch = new Batcher();
+  const batch = new Batcher(QP === '0' ? Infinity : (+QP || q.palazziLontani || Infinity));
   const trees = { pino: [], cipresso: [], latifoglia: [], palma: [] };
   const treeModels = {};
   for (const k of Object.keys(trees)) treeModels[k] = [0, 1, 2].map(() => P.albero(rnd, k));

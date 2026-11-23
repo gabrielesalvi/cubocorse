@@ -63,7 +63,7 @@ const scatola = (html, toccabile = false) => `<div style="pointer-events:${tocca
 const cartellino = (html) => `<div style="position:fixed;top:8px;left:8px;pointer-events:none;background:rgba(10,12,16,.82);border-radius:8px;padding:6px 10px;font:13px/1.35 ui-monospace,Menlo,monospace;color:#d8f5d0">${html}</div>`;
 
 function tabella(d) {
-  const righe = d.risultati.map((r) => `<tr><td>${r.nome}</td><td style="text-align:right"><b>${r.fps ?? '—'}</b></td><td style="text-align:right">${r.fps1 ?? '—'}</td><td style="text-align:right">${r.peggiore ?? '—'} ms</td><td>${r.risoluzione || ''}</td><td style="text-align:right">${r.carico ?? '—'} s</td>${r.nota ? `<td>${r.nota}</td>` : '<td></td>'}</tr>`).join('');
+  const righe = d.risultati.map((r) => `<tr><td>${r.nome}</td><td style="text-align:right"><b>${r.fps ?? '—'}</b></td><td style="text-align:right">${r.fps1 ?? '—'}</td><td style="text-align:right">${r.peggiore ?? '—'} ms</td><td>${r.risoluzione || ''}</td><td style="text-align:right">${r.carico ?? '—'} s</td>${r.nota ? `<td>${r.nota}</td>` : '<td></td>'}</tr>${r.fasi?.length ? `<tr><td></td><td colspan="6" style="font-size:12px;color:#aaa;padding-top:0">carico: ${r.fasi.map(([n, v]) => `${n} ${String(v.toFixed(1)).replace('.', ',')} s`).join(' · ')}</td></tr>` : ''}`).join('');
   const D = d.dispositivo;
   return `<div style="font-weight:700;color:#ffd23f;margin-bottom:6px">Misura finita · qualità ${d.qual}</div>
     <table style="border-collapse:collapse;font-size:14px" cellpadding="4"><tr style="color:#aaa"><td>Pista</td><td>fps medi</td><td>fps 1% lenti</td><td>peggiore</td><td>risoluzione</td><td>carico</td><td></td></tr>${righe}</table>
@@ -128,7 +128,8 @@ async function corri(app, d, el) {
       el.innerHTML = cartellino(`Misura ${d.risultati.length + 1}/${PISTE.length} · ${nome}<br>${Math.round(sec)}/${SECONDI} s · ${fps.toFixed(0)} fps`);
     });
     const W = app.mondo, c = W.canvas || $id('gl');
-    d.risultati.push({ id, nome, ...riassumi(dts), carico, risoluzione: c ? `${c.width}×${c.height}` : '', pr: W.pixelRatio ?? null, info: W.infoPrestazioni ? W.infoPrestazioni() : '' });
+    const fasi = (app.ultimoCarico?.id === id ? app.ultimoCarico.fasi : []).slice(0, 3);   // 23-11: dove va il tempo di caricamento
+    d.risultati.push({ id, nome, ...riassumi(dts), carico, fasi, risoluzione: c ? `${c.width}×${c.height}` : '', pr: W.pixelRatio ?? null, info: W.infoPrestazioni ? W.infoPrestazioni() : '' });
     d.incorso = null; scrivi(d);
   }
   d.finita = true; d.finitaAlle = new Date().toISOString();

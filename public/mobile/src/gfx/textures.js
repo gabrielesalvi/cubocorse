@@ -4,7 +4,7 @@ import * as THREE from 'three';
 function canvas(w, h) {
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
-  return [c, c.getContext('2d')];
+  return [c, c.getContext('2d', { willReadFrequently: true })];
 }
 function rnd(seed) {
   let s = seed >>> 0;

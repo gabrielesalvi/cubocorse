@@ -31,7 +31,7 @@ export function stileEdificio(e, { dettaglio = true, vecchio = false } = {}) {
   const tetto = (forma, colore, pend = 0.34) => {
     if (forma === 'padiglione' && !(rett > 0.92 || a < 350)) forma = rett > 0.8 && r.L / r.W > 1.4 ? 'capanna' : 'piano';
     if (forma === 'capanna' && rett < 0.8) forma = a < 350 ? 'padiglione' : 'piano';
-    return forma === 'piano' ? { forma, parapetto: 0.5, colore: '#8e8d88' } : { forma, pendenza: pend, colore, passo: 1.8 };
+    return forma === 'piano' ? { forma, parapetto: 0.5, colore: '#8e8d88' } : { forma, pendenza: pend, colore, passo: 4 };   // 23-11: tetti a 4 m (erano 1,8: falde piane, stessa immagine, come a Brescia)
   };
   const fin = (o) => (dettaglio ? o : undefined);
   const uso = e.uso, tipo = e.tipo;

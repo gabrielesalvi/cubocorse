@@ -70,7 +70,7 @@ class Input {
       return { throttle: v.throttle, brake: v.brake, steer: v.steer, handbrake: !!P.giu.manoFreno || this.has('Space'), assist: true, sterzoLibero: !P.cfg.aiuti, sim: !!this.sim };
     }
     // telefono (fase 2b): tasti a schermo o inclinazione. this.telefono.leggi() dà già sterzo, gas, freno e freno a mano
-    // filtrati (e gas/freno automatici se accesi), con il tipo 'touch' | 'inclinazione' per il simbolo in classifica
+    // filtrati (e gas/freno automatici se accesi), col tipo 'telefono' per il simbolo in classifica (uno solo dal 23-11)
     if (T && T.inUso()) {
       const v = T.leggi(dt, speed);
       this.comando = T.tipo;
@@ -95,6 +95,23 @@ class Input {
     this.steer += Math.sign(d) * Math.min(Math.abs(d), rate * dt);
     return { throttle: this.thr, brake: this.brk, steer: this.steer, handbrake: this.has('Space'), assist: true, sim: !!this.sim };
   }
+}
+
+/**
+ * 23-11 (sonda del caricamento): dai tempi dei messaggi di avanzamento a una lista di fasi in secondi, la più lunga prima.
+ * Ogni messaggio dura fino al successivo; «installa» si divide in preparazione della gara e compilazione degli shader.
+ */
+function tempiCarico(id, tempi, inst = {}) {
+  const fasi = new Map();
+  for (let i = 0; i + 1 < tempi.length; i++) {
+    const nome = tempi[i][1];
+    if (nome === 'installa') continue;
+    fasi.set(nome, (fasi.get(nome) || 0) + (tempi[i + 1][0] - tempi[i][0]) / 1000);
+  }
+  if (inst.gara != null) fasi.set('gara (auto, IA)', inst.gara / 1000);
+  if (inst.shader != null) fasi.set('shader', inst.shader / 1000);
+  const totale = (tempi.at(-1)[0] - tempi[0][0]) / 1000 + ((inst.gara || 0) + (inst.shader || 0)) / 1000;
+  return { id, totale: +totale.toFixed(2), fasi: [...fasi].map(([n, v]) => [n, +v.toFixed(2)]).sort((a, b) => b[1] - a[1]) };
 }
 
 // ------------------------------------------------------------------ applicazione
@@ -198,7 +215,7 @@ class App {
     if (this._prep?.chiave === chiave) return this._prep.promessa;
     if (!this._prep && this.mondo && this.chiaveMondo === chiave) return Promise.resolve();
     if (this._prep) this._prep.annullato = true;
-    const job = { chiave, annullato: false };
+    const job = { chiave, annullato: false, tempi: [[performance.now(), 'avvio']] };   // 23-11: tempi delle fasi (sonda del caricamento)
     this._prep = job;
     this.statoCarico(0.02, `Preparo ${t.nome}…`);
     const ANNULLATO = {};
@@ -215,10 +232,13 @@ class App {
         M.avviso = (m) => UI.toast(m, 6000);
         const res = await M.carica(t.id, { ...s, versione: this.versione(t) || s.versione }, (p, m) => {
           if (job.annullato) throw ANNULLATO;
+          job.tempi.push([performance.now(), m.replace(/…$/, '')]);
           if (this._prep === job) this.statoCarico(p, `${t.nome}: ${m.replace(/…$/, '')}`);
         }, (tr) => buildRacingLine(tr, CARS[0]));
         if (job.annullato) throw ANNULLATO;
+        job.tempi.push([performance.now(), 'installa']);
         this.installa(M, res, chiave);
+        this.ultimoCarico = tempiCarico(t.id, job.tempi, this._tInstalla);
       } catch (e) {
         if (M) { try { M.distruggi(); } catch { /* niente */ } } else canvas.remove();
         if (e !== ANNULLATO) { console.error(e); window.__errore = e.stack; UI.toast('Pista non caricata: ' + e.message, 8000); }
@@ -250,8 +270,11 @@ class App {
     document.body.classList.toggle('mondo-pacchetto', M.tipo !== 'voxel');
     if (this.ghost) { this.ghost.dispose(); this.ghost = null; }
     this.visuals = null;
+    const t0 = performance.now();
     this.setupRace(false);
+    const t1 = performance.now();
     M.compila();
+    this._tInstalla = { gara: t1 - t0, shader: performance.now() - t1 };
     M.canvas.classList.remove('attesa');
     M.canvas.id = 'gl';
     if (vecchio) vecchio.distruggi();
@@ -380,7 +403,7 @@ class App {
     else if (['modo', 'nAuto', 'grid'].includes(k) && W) this.setupRace(false);
     else if (k === 'linea' && this.lineaMesh) this.lineaMesh.visible = !!s.linea;
     else if (k === 'pubblico' && W?.impostaPubblico) W.impostaPubblico(!!s.pubblico);
-    if (['telComandi', 'telGas', 'telFreno'].includes(k)) this.telefono.aggiornaSchema();
+    if (['telSterzo', 'telPedali', 'telLeva', 'telGas', 'telFreno'].includes(k)) this.telefono.aggiornaSchema();
     if (['track', 'versione', 'modo'].includes(k)) this.recordMenu();
   }
 
@@ -486,7 +509,7 @@ class App {
     this.padUI.aggiorna();
     const inUso = P.inUso(this.input.ultimaTastiera);
     const T = this.telefono;
-    const stato = P.gp ? nomeController(P.gp.id) + (inUso ? ' · in uso' : '') : T.inUso() ? (T.schema === 'inclinazione' ? 'Telefono · inclinazione' : 'Telefono · tasti') : 'Tastiera';
+    const stato = P.gp ? nomeController(P.gp.id) + (inUso ? ' · in uso' : '') : T.inUso() ? `Telefono · ${{ tasti: 'tasti', leva: 'leva', inclinazione: 'inclinazione' }[T.sterzo]}${T.pedali === 'cursore' ? ' e cursore' : ''}` : 'Tastiera';
     if (stato !== this._padStato) {
       this._padStato = stato;
       const el = $id('mpadstato');
@@ -839,7 +862,7 @@ class App {
         setTimeout(() => { this.hud.lights(0); W.semaforo(0); }, 1500);
         this.hud.message('VIA!', 1200);
       } else if (e.t === 'giro' && e.car === this.player) {
-        // tipo di comando del giro: il più aiutato fra quelli usati (REC.PIU_AIUTATO: tasti a schermo, tastiera, inclinazione, controller)
+        // tipo di comando del giro: il più aiutato fra quelli usati (REC.PIU_AIUTATO: telefono, tastiera, controller)
         const com = REC.comandoDelGiro(this._comGiro);
         this._catGiri[this.player.lapTimes.length - 1] = com;
         if (race.timeTrial) {

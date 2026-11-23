@@ -14,7 +14,7 @@ const NL = 24;      // lampi
 /** texture a sbuffi: più cerchi sfumati sovrapposti, bordo morbido (canvas 128 px) */
 function texSbuffo() {
   const c = document.createElement('canvas'); c.width = c.height = 128;
-  const g = c.getContext('2d');
+  const g = c.getContext('2d', { willReadFrequently: true });   // 23-11: tela in memoria normale, getImageData senza rilettura dalla scheda video
   let seme = 7; const rnd = () => ((seme = (seme * 16807) % 2147483647) / 2147483647);
   for (let i = 0; i < 26; i++) {
     const a = rnd() * Math.PI * 2, d = rnd() * 30, x = 64 + Math.cos(a) * d, y = 64 + Math.sin(a) * d, r = 18 + rnd() * 26;

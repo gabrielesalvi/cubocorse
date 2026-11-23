@@ -15,12 +15,16 @@ const KEY = 'cubo-corse-record-v4', KEY_V3 = 'cubo-corse-record-v3', KEY_V2 = 'c
 const MAX_BOARD = 10, MAX_STORICO = 50, MAX_NOME = 8;
 export const MODI = { arcade: 'Arcade', realistica: 'Realistica' };
 export const MODALITA = { gara: 'Gara', tempo: 'Time trial' };
-// 22-11 (fase 1): il telefono, con le sue due varianti (tasti a schermo, inclinazione), nella stessa classifica col suo simbolo
-export const COMANDI = { tastiera: 'Tastiera', controller: 'Controller', touch: 'Telefono · tasti', inclinazione: 'Telefono · inclinazione' };
-/** giro fatto con più comandi: prende il simbolo del più aiutato fra quelli usati (tasti a schermo e tastiera hanno la
- *  rampa dello sterzo e il tetto in velocità; l'inclinazione è analogica ma filtrata; il controller è il meno aiutato) */
-export const PIU_AIUTATO = ['touch', 'tastiera', 'inclinazione', 'controller'];
-export const comandoDelGiro = (usati) => PIU_AIUTATO.find((c) => usati.has(c)) || 'tastiera';
+// 22-11 (fase 1): il telefono nella stessa classifica col suo simbolo. 23-11 (Gabriele): un solo simbolo «Telefono»,
+// qualunque sia il comando (tasti, leva o inclinazione per lo sterzo, tasti o cursore per i pedali). «touch» e
+// «inclinazione» sono i nomi dei record fatti prima del 23-11 sulla copia di prova: si mostrano come telefono.
+export const COMANDI = { tastiera: 'Tastiera', controller: 'Controller', telefono: 'Telefono', touch: 'Telefono', inclinazione: 'Telefono' };
+const ALIAS = { touch: 'telefono', inclinazione: 'telefono' };
+export const comandoNorm = (c) => ALIAS[c] || c;
+/** giro fatto con più comandi: prende il simbolo del più aiutato fra quelli usati (il telefono per primo: se l'hai usato si
+ *  vede; poi la tastiera, con la rampa dello sterzo e il tetto in velocità; il controller è il meno aiutato) */
+export const PIU_AIUTATO = ['telefono', 'tastiera', 'controller'];
+export const comandoDelGiro = (usati) => PIU_AIUTATO.find((c) => [...usati].some((u) => comandoNorm(u) === c)) || 'tastiera';
 /** categoria di un record: la modalità (tastiera e controller insieme dal 21-11) */
 export const categoria = (modo) => (modo === 'tempo' ? 'tempo' : 'gara');
 export const nomeCategoria = (cat) => MODALITA[cat] || cat;
@@ -28,10 +32,9 @@ export const nomeCategoria = (cat) => MODALITA[cat] || cat;
 const ICONE = {
   tastiera: '<svg viewBox="0 0 24 16" width="20" height="13" aria-hidden="true"><rect x="1" y="1" width="22" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5 5h2M9 5h2M13 5h2M17 5h2M5 8.5h2M9 8.5h2M13 8.5h2M17 8.5h2M7 12h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
   controller: '<svg viewBox="0 0 24 16" width="20" height="13" aria-hidden="true"><path d="M7 2h10c3 0 5 2.5 5.6 6.5.5 3.4-.6 5.5-2.4 5.5-1.5 0-2.4-1.3-3.4-2.8H7.2C6.2 12.7 5.3 14 3.8 14 2 14 .9 11.9 1.4 8.5 2 4.5 4 2 7 2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M6.5 6v4M4.5 8h4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="16.5" cy="6.8" r="1.1" fill="currentColor"/><circle cx="18.8" cy="9.2" r="1.1" fill="currentColor"/></svg>',
-  touch: '<svg viewBox="0 0 24 16" width="20" height="13" aria-hidden="true"><rect x="2" y="2" width="20" height="12" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.5 8h3M7 6.5v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="8" r="1.2" fill="currentColor"/><circle cx="18.6" cy="8" r="1.2" fill="currentColor"/></svg>',
-  inclinazione: '<svg viewBox="0 0 24 16" width="20" height="13" aria-hidden="true"><g transform="rotate(-14 12 8)"><rect x="3" y="3.5" width="18" height="9" rx="2.2" fill="none" stroke="currentColor" stroke-width="1.6"/></g><path d="M2.5 13.5c2-1.6 4-2.3 6-2.5M21.5 2.5c-2 1.6-4 2.3-6 2.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>',
+  telefono: '<svg viewBox="0 0 24 16" width="20" height="13" aria-hidden="true"><rect x="2" y="2.5" width="20" height="11" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M19 6.2v3.6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><circle cx="5" cy="8" r=".9" fill="currentColor"/></svg>',
 };
-export const iconaComando = (c) => (ICONE[c] ? `<span class="ic-com" title="${COMANDI[c]}">${ICONE[c]}</span>` : '');
+export const iconaComando = (c) => { c = comandoNorm(c); return ICONE[c] ? `<span class="ic-com" title="${COMANDI[c]}">${ICONE[c]}</span>` : ''; };
 
 function migraV1() {
   try {

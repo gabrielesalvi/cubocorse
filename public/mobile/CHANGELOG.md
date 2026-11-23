@@ -14,13 +14,20 @@ e quella di prima resta consultabile dalla tendina dei record.
 
 ### Telefono
 - Cubo Corse si gioca anche da telefono, iPhone e Android, in orizzontale.
-- Due modi di guidare: tasti a schermo (sinistra e destra col pollice sinistro, freno e gas col destro) oppure
-  inclinando il telefono come un volante. Si sceglie nel menu, in Comandi.
+- Sterzo e pedali si scelgono separatamente nel menu, in Comandi, e si combinano come si vuole:
+  - sterzo a **tasti** (sinistra e destra col pollice sinistro), con la **leva** (nasce dove appoggi il pollice, più lo
+    sposti più sterzi) oppure **inclinando** il telefono come un volante;
+  - pedali a **tasti**, disegnati come pedali veri, oppure col **cursore**: una barra a destra, sopra la tacca gas e sotto
+    freno, tutti e due dosabili.
+- Dopo il via, mentre guidi, i comandi diventano semitrasparenti e le scritte dei pedali spariscono; quando togli le mani
+  dallo schermo tornano del tutto visibili.
 - Gas automatico e freno automatico, ognuno acceso o spento per conto suo: con tutti e due basta sterzare.
 - Una qualità grafica pensata per il telefono, scelta da sola.
 - Si può aggiungere alla schermata Home: si apre a schermo intero e funziona anche senza rete.
-- In classifica i giri fatti col telefono hanno il loro simbolo, nella stessa classifica di tastiera e controller.
+- In classifica i giri fatti col telefono hanno il simbolo del telefono, qualunque comando si usi, nella stessa classifica
+  di tastiera e controller.
 - Il menu si legge e si usa anche sugli schermi piccoli.
+- Le piste si caricano più in fretta, Monza soprattutto.
 
 ### Record
 - I nomi con parolacce o offese non si possono usare: il gioco chiede di sceglierne un altro.

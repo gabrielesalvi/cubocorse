@@ -466,6 +466,7 @@ body.tocco input { -webkit-user-select: text; user-select: text; }
 body.tocco .solo-tocco { display: flex !important; }
 body.tocco .solo-desktop { display: none !important; }
 body:not(.tel-incl) .solo-incl-menu { display: none !important; }
+body:not(.ster-leva) .solo-leva-menu { display: none !important; }
 
 /* HUD sul telefono: tempi e velocità più piccoli, niente minimappa né classifica (la posizione è in alto a sinistra) */
 body.tocco #hud .tl { left: max(10px, env(safe-area-inset-left)); top: 8px; transform: scale(.62); transform-origin: top left; }
@@ -476,26 +477,75 @@ body.tocco .camlabel { left: 50%; transform: translateX(-50%); bottom: 110px; }
 body.tocco .recupero { bottom: auto; top: 30%; font-size: 18px; }
 body.tocco .lights { transform: translateX(-50%) scale(.7); transform-origin: top center; top: 14%; }
 
-/* comandi a schermo */
+/* comandi a schermo (22-11; 23-11: sterzo tasti/leva/inclinazione × pedali tasti/cursore, pedali disegnati, trasparenza in uso) */
 #tocco { position: absolute; inset: 0; pointer-events: none; }
 #tocco .tz { position: absolute; bottom: max(10px, env(safe-area-inset-bottom)); display: flex; align-items: flex-end; gap: 10px; pointer-events: auto; touch-action: none; padding: 30px 8px 0; }
 #tocco .tsx { left: max(10px, env(safe-area-inset-left)); }
 #tocco .tdx { right: max(10px, env(safe-area-inset-right)); }
 #tocco .tt { pointer-events: none; border: 2px solid rgba(255,255,255,.28); background: rgba(10,12,16,.32); color: rgba(255,255,255,.85); border-radius: 18px;
   font: 800 italic 18px var(--cond); letter-spacing: .06em; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.05;
-  backdrop-filter: blur(2px); transition: background .06s, border-color .06s, transform .06s; }
+  backdrop-filter: blur(2px); transition: background .06s, border-color .06s, transform .06s, opacity .25s; }
 #tocco .tt.giu { background: rgba(255,59,47,.55); border-color: rgba(255,255,255,.75); transform: scale(.96); }
 #tocco .tt.sterzo { width: 96px; height: 96px; font-size: 34px; font-style: normal; }
-#tocco .tt.gas { width: 104px; height: 128px; }
-#tocco .tt.gas.giu { background: rgba(59,209,111,.55); }
-#tocco .tt.freno { width: 88px; height: 104px; }
 #tocco .tt.mano { width: 64px; height: 52px; font-size: 11px; align-self: flex-start; margin-top: -30px; }
+/* pedali: disegno di un pedale vero; premuto si piega sulla cerniera (gas in basso, freno sul braccio in alto) */
+#tocco .tt.pedale { position: relative; border: 0; background: none; backdrop-filter: none; padding: 0; border-radius: 0; color: #fff; }
+#tocco .tt.pedale .psvg { width: 100%; height: 100%; overflow: visible; filter: drop-shadow(0 3px 4px rgba(0,0,0,.45)); transition: transform .07s; }
+#tocco .psvg .piastra { fill: rgba(28,31,36,.62); stroke: rgba(255,255,255,.62); stroke-width: 2.4; transition: fill .06s; }
+#tocco .psvg .righe { stroke: rgba(255,255,255,.26); stroke-width: 2.6; stroke-linecap: round; fill: none; }
+#tocco .psvg .cern, #tocco .psvg .braccio { fill: rgba(60,64,70,.75); stroke: rgba(255,255,255,.5); stroke-width: 1.6; }
+#tocco .tt.gas { width: 74px; height: 128px; }
+#tocco .tt.gas .psvg { transform-origin: 50% 96%; }
+#tocco .tt.freno { width: 96px; height: 116px; }
+#tocco .tt.freno .psvg { transform-origin: 50% 0; }
+#tocco .tt.pedale.giu { background: none; transform: none; }
+#tocco .tt.gas.giu .psvg { transform: perspective(260px) rotateX(18deg) scale(.97); }
+#tocco .tt.freno.giu .psvg { transform: perspective(260px) rotateX(-16deg) scale(.97); }
+#tocco .tt.gas.giu .piastra { fill: rgba(59,209,111,.62); }
+#tocco .tt.freno.giu .piastra { fill: rgba(255,59,47,.62); }
+#tocco .etichetta { position: absolute; left: 0; right: 0; text-align: center; font: 800 italic 15px var(--cond); letter-spacing: .08em; color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.9); pointer-events: none; transition: opacity .25s; }
+#tocco .tt.gas .etichetta { top: 44%; }
+#tocco .tt.freno .etichetta { top: 56%; }
+/* leva dello sterzo: zona = metà sinistra sotto l'HUD; il disegno nasce sotto il pollice */
+#tocco .zleva { position: absolute; left: 0; top: 22%; width: 50%; bottom: 0; pointer-events: auto; touch-action: none; }
+#tocco .leva { position: absolute; width: 0; height: 0; pointer-events: none; transition: opacity .25s; }
+#tocco .lbase { position: absolute; left: 0; top: 0; width: calc(var(--r) * 2); height: calc(var(--r) * 2); transform: translate(-50%, -50%); border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.45); background: rgba(10,12,16,.28); display: flex; align-items: center; justify-content: space-between; padding: 0 6px; box-sizing: border-box; }
+#tocco .lfreccia { font: 700 13px var(--sans); font-style: normal; color: rgba(255,255,255,.55); }
+#tocco .lpomo { position: absolute; left: 0; top: 0; width: calc(var(--r) * .95); height: calc(var(--r) * .95); border-radius: 50%; transform: translate(-50%, -50%);
+  background: rgba(255,255,255,.78); box-shadow: 0 2px 6px rgba(0,0,0,.45); }
+#tocco .leva.riposo { opacity: .5; }
+#tocco .leva.riposo .lbase { border-style: dashed; }
+#tocco .leva.riposo .lpomo { background: rgba(255,255,255,.35); }
+/* cursore di gas e freno: barra a destra; conta l'altezza del dito ovunque nella zona */
+#tocco .zcursore { position: absolute; right: 0; top: 18%; bottom: 0; width: 30%; pointer-events: auto; touch-action: none; }
+#tocco .cbarra { --u: .5; --g: 0; --f: 0; position: absolute; right: max(22px, env(safe-area-inset-right)); top: 3%; bottom: max(12px, env(safe-area-inset-bottom)); width: 66px;
+  border-radius: 16px; border: 2px solid rgba(255,255,255,.4); overflow: hidden; transition: opacity .25s;
+  background: linear-gradient(to top, rgba(255,59,47,.22) 0 15%, rgba(10,12,16,.32) 15% 80%, rgba(59,209,111,.22) 80% 100%); }
+#tocco .cgas { position: absolute; left: 0; right: 0; bottom: 50%; height: calc(max(0, var(--u) - .5) * 100%); background: rgba(59,209,111, calc(.35 + var(--g) * .4)); }
+#tocco .cfreno { position: absolute; left: 0; right: 0; top: 50%; height: calc(max(0, .5 - var(--u)) * 100%); background: rgba(255,59,47, calc(.35 + var(--f) * .4)); }
+#tocco .ctacca { position: absolute; left: 0; right: 0; top: 46%; height: 8%; border-top: 2px solid rgba(255,255,255,.55); border-bottom: 2px solid rgba(255,255,255,.55); box-sizing: border-box; }
+#tocco .cpomo { position: absolute; left: 4px; right: 4px; height: 14px; bottom: calc(var(--u) * 100%); transform: translateY(50%); border-radius: 7px; background: #fff; opacity: 0; box-shadow: 0 1px 4px rgba(0,0,0,.5); }
+#tocco .cbarra.attivo .cpomo { opacity: .9; }
+#tocco .cbarra .csu { top: 6px; font-size: 13px; }
+#tocco .cbarra .cgiu { bottom: 6px; font-size: 13px; }
 #tocco .tbar { position: absolute; top: max(8px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); display: flex; gap: 8px; pointer-events: auto; }
 #tocco .tb { width: 46px; height: 46px; border-radius: 12px; border: 1px solid rgba(255,255,255,.3); background: rgba(10,12,16,.45); color: #fff; font: 700 18px var(--sans); padding: 0; touch-action: none; }
+/* combinazioni: cosa si vede per ogni sterzo e ogni tipo di pedali */
 body:not(.tel-incl) #tocco .solo-incl { display: none; }
-body.tel-incl #tocco .solo-tasti, body.tel-incl #tocco .sterzo { display: none; }
-body.tel-incl #tocco .tt.freno { width: 104px; height: 128px; }
-body.tel-gas-auto #tocco .tt.gas, body.tel-freno-auto #tocco .tt.freno { opacity: .45; }
+body:not(.ster-tasti) #tocco .sterzo { display: none; }
+body:not(.ster-leva) #tocco .zleva, body:not(.ster-leva) #tocco .leva { display: none; }
+body:not(.ped-cursore) #tocco .zcursore, body.ped-cursore #tocco .tt.gas, body.ped-cursore #tocco .tt.freno { display: none; }
+body.ster-inclinazione #tocco .freno-dx, body:not(.ster-inclinazione) #tocco .freno-sx { display: none; }
+body.ster-leva #tocco .tsx, body.ster-inclinazione.ped-cursore #tocco .tsx { display: none; }
+body.ster-inclinazione #tocco .tt.freno { width: 110px; height: 132px; }
+body.ped-cursore #tocco .tdx { right: calc(30% + 4px); }
+body.ped-cursore #tocco .tt.mano { margin-top: 0; }
+/* dopo il via, con le dita sullo schermo: comandi semitrasparenti, scritte dei pedali nascoste (tocco.js _vista) */
+#tocco.mani .tt, #tocco.mani .cbarra, #tocco.mani .leva { opacity: .35; }
+#tocco.mani .etichetta { opacity: 0; }
+body.tel-gas-auto #tocco:not(.mani) .tt.gas, body.tel-freno-auto #tocco:not(.mani) .tt.freno { opacity: .5; }
 
 /* telefono in verticale */
 #ruota { display: none; }

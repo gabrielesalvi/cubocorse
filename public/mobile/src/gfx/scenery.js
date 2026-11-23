@@ -684,6 +684,9 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     // bosco: denso vicino alla pista, semplice lontano
     const b = track.bounds;
     const step = 10 / Math.sqrt(q.trees || 1);
+    // 23-11: si cede il passo al browser ogni ~40 ms di lavoro. Prima era «Math.floor(z) % 300 < step», vero a OGNI fila con
+    // z negativo (il resto in JS ha il segno del dividendo): a Monza ~90 attese di un fotogramma, 19 s su 26 senza scheda video
+    let tCede = performance.now();
     for (let z = b.minz - 300; z < b.maxz + 300; z += step) {
       for (let x = b.minx - 300; x < b.maxx + 300; x += step) {
         const jx = x + (rnd() - 0.5) * step * 0.9, jz = z + (rnd() - 0.5) * step * 0.9;
@@ -697,7 +700,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
         if (inf.dist < E.barD[inf.i] + 70) addTree(rnd() < 0.85 ? 'latifoglia' : 'pino', jx, jz, 1.15);
         else simpleTrees.push({ x: jx, y: H(jx, jz), z: jz, yaw: rnd() * 6, s: 0.9 + rnd() * 0.6 });
       }
-      if (Math.floor(z) % 300 < step) await nextFrame();
+      if (performance.now() - tCede > 40) { await nextFrame(); tCede = performance.now(); }
     }
     // Alpi in lontananza (nord = -z)
     const alps = new Batcher();

@@ -11,7 +11,7 @@ const ASFALTO = new Set(['Pista', 'Strade', 'Corsia box', 'Fuga asfalto', 'Caval
 const VERNICE = new Set(['Linee', 'Traguardo', 'Cordoli', 'Griglia', 'Segnaletica stradale', 'Sagrato']);   // rev. 10: anche la pietra del sagrato
 
 function rnd(seed) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296); }
-function canvas(n) { const c = document.createElement('canvas'); c.width = c.height = n; return [c, c.getContext('2d')]; }
+function canvas(n) { const c = document.createElement('canvas'); c.width = c.height = n; return [c, c.getContext('2d', { willReadFrequently: true })]; }
 function tex(c, srgb) {
   const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8;
   t.colorSpace = srgb ? THREE.SRGBColorSpace : THREE.NoColorSpace; return t;

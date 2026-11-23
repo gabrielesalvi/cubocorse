@@ -12,7 +12,7 @@ export const fmt = (t) => {
 };
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
-export const DEFAULTS = { track: 'monza', car: 0, livery: 0, laps: 3, diff: 'normale', grid: 'ultimo', ora: 'oro', meteo: 'sereno', qual: 'auto', fisica: 'arcade', linea: false, penLimiti: false, penContatti: false, modo: 'gara', ghost: true, nAuto: 10, pedali: 'manuali', danni: 'estetici', telComandi: 'tasti', telGas: false, telFreno: false, telSens: 22,
+export const DEFAULTS = { track: 'monza', car: 0, livery: 0, laps: 3, diff: 'normale', grid: 'ultimo', ora: 'oro', meteo: 'sereno', qual: 'auto', fisica: 'arcade', linea: false, penLimiti: false, penContatti: false, modo: 'gara', ghost: true, nAuto: 10, pedali: 'manuali', danni: 'estetici', telSterzo: 'tasti', telPedali: 'tasti', telLeva: 'media', telGas: false, telFreno: false, telSens: 22,
   // fase 0: modello di guida (Agile = misto, Composta = cubo), sterzo da tastiera per pista (sterzoPista[id] = pronto|dolce,
   // altrimenti quello della pista), versione dei circuiti di Circuit Studio, pubblico, stile delle auto low-poly
   guida: 'misto', sterzoPista: {}, versione: 'B', pubblico: true, stileAuto: 'attuale' };
@@ -21,7 +21,10 @@ export const sterzoPredefinito = (pista) => (pista && pista.mondo === 'pacchetto
 
 export function loadSettings() {
   try {
-    return { ...DEFAULTS, ...JSON.parse(localStorage.getItem('cubo-corse') || '{}') };
+    const s = { ...DEFAULTS, ...JSON.parse(localStorage.getItem('cubo-corse') || '{}') };
+    if (s.telComandi === 'inclinazione' && !JSON.parse(localStorage.getItem('cubo-corse') || '{}').telSterzo) s.telSterzo = 'inclinazione';   // 23-11: telComandi → telSterzo
+    delete s.telComandi;
+    return s;
   } catch {
     return { ...DEFAULTS };
   }
@@ -179,7 +182,9 @@ export function buildMenu(settings, tracks, cb, mondi) {
   seg('pedali', [['manuali', 'Manuali'], ['freno', 'Freno auto'], ['gas', 'Gas auto']], 'pedali');
   seg('danni', [['estetici', 'Estetici'], ['meccanici', 'Meccanici']], 'danni');
   // telefono (fase 2b, 22-11): schema dei comandi a schermo e automatismi, separati
-  seg('telComandi', [['tasti', 'Tasti', 'Sinistra e destra col pollice sinistro, freno e gas col destro'], ['inclinazione', 'Inclinazione', 'Il telefono fa da volante; freno a sinistra, gas a destra']], 'telComandi');
+  seg('telSterzo', [['tasti', 'Tasti', 'Sinistra e destra col pollice sinistro'], ['leva', 'Leva', 'Leva analogica: nasce dove appoggi il pollice sinistro, più lo sposti più sterzi'], ['inclinazione', 'Inclinazione', 'Il telefono fa da volante']], 'telSterzo');
+  seg('telPedali', [['tasti', 'Tasti', 'Freno e gas come pedali, col pollice destro (con l\'inclinazione il freno va a sinistra)'], ['cursore', 'Cursore', 'Barra verticale a destra: sopra la tacca gas, sotto freno, tutti e due dosabili']], 'telPedali');
+  seg('telLeva', [['pronta', 'Pronta', 'Sterzo pieno con un piccolo spostamento del pollice'], ['media', 'Media', 'Sterzo pieno a metà strada'], ['dolce', 'Dolce', 'Sterzo pieno con uno spostamento ampio: più preciso']], 'telLeva');
   seg('telGas', [[false, 'No'], [true, 'Sì']], 'telGas');
   seg('telFreno', [[false, 'No'], [true, 'Sì']], 'telFreno');
   seg('telSens', [[15, 'Pronta', 'Sterzo pieno a 15° di inclinazione'], [22, 'Media', 'Sterzo pieno a 22°'], [32, 'Dolce', 'Sterzo pieno a 32°']], 'telSens');

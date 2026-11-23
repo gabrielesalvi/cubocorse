@@ -28,6 +28,7 @@ e quella di prima resta consultabile dalla tendina dei record.
   di tastiera e controller.
 - Il menu si legge e si usa anche sugli schermi piccoli.
 - Le piste si caricano più in fretta, Monza soprattutto.
+- Le auto avversarie costano meno da disegnare: sul telefono resta più margine.
 
 ### Record
 - I nomi con parolacce o offese non si possono usare: il gioco chiede di sceglierne un altro.

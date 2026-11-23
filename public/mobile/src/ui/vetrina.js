@@ -47,7 +47,7 @@ export class Vetrina {
     if (k === this.chiave) return;
     this.chiave = k;
     if (this.vis) { this.perno.remove(this.vis.group); this.vis.dispose(); }
-    this.vis = creaVisuale(spec, livrea, 1, { stile, pbr: true });
+    this.vis = creaVisuale(spec, livrea, 1, { stile, pbr: true, lontana: false });
     this.vis.group.traverse((o) => { if (o.isMesh) { o.castShadow = true; } });
     // posa ferma: ruote dritte, al centro del piatto (l'auto ha l'origine nel baricentro, a metà fra gli assi)
     const finta = { x: (spec.b - spec.a) / 2, y: 0, z: 0, yaw: 0, pitch: 0, roll: 0, bankRoll: 0, wheelSpin: 0, delta: 0.18, brake: 0, gear: 1, speed: 0, rpm: 1000, damage: 0 };

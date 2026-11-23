@@ -4,6 +4,7 @@
 // Stessa interfaccia: group, body, eye, bonnet, update(car, dt, t), setCockpit(on), dispose(); damage() solo voxel.
 import { CarVisual } from './carmodel.js';
 import { AutoLowPoly } from './pacchetto/auto3d.js';
+import { conCopiaLontana } from './lontana.js';   // 23-11: oltre 35 m pezzi uniti per materiale
 
 /** normali nulle (triangoli degeneri) → in su: altrimenti lo shader fa normalize(0) = NaN e il pixel esce nero
  *  (quadrati neri con antialias e bagliore, Circuit Studio 10-11). Le geometrie condivise si sistemano una volta. */
@@ -21,12 +22,14 @@ function sanaNormali(root) {
   });
 }
 
-/** opt: { stile (auto low-poly: attuale | lowpoly | realistico), numeri (false per il ghost), pbr (mondo voxel) } */
+/** opt: { stile (auto low-poly: attuale | lowpoly | realistico), numeri (false per il ghost), pbr (mondo voxel),
+ *  lontana (false: niente copia da lontano, per la vetrina del menu) } */
 export function creaVisuale(spec, livery, number, opt = {}) {
   if (spec.modello === 'lowpoly') {
     const a = new AutoLowPoly(spec, livery, number, { numeri: opt.numeri !== false, stile: opt.stile || 'attuale', pbr: !!opt.pbr });
     sanaNormali(a.group);
-    return a;
+    return opt.lontana === false ? a : conCopiaLontana(a);
   }
-  return new CarVisual(spec, livery, number);
+  const v = new CarVisual(spec, livery, number);
+  return opt.lontana === false ? v : conCopiaLontana(v);
 }

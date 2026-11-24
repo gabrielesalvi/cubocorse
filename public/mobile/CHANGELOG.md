@@ -39,6 +39,8 @@ e quella di prima resta consultabile dalla tendina dei record.
 - In Ultra, sui circuiti di Roncadelle, l'ombreggiatura ambientale (le ombre morbide sotto le auto e alla base di muri e
   tribune) si calcola dall'immagine già disegnata invece di ridisegnare la scena: un terzo dei triangoli in meno per
   fotogramma, quasi la stessa immagine.
+- Le ombre delle auto partono da sotto la carrozzeria: prima fra l'auto e la sua ombra restava una striscia di sole e
+  l'auto sembrava sollevata da terra.
 
 ### Record
 - I nomi con parolacce o offese non si possono usare: il gioco chiede di sceglierne un altro.

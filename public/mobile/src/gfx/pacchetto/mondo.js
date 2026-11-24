@@ -160,7 +160,11 @@ export class Cielo {
     this.sole = new THREE.DirectionalLight(0xfff2dd, 2.4);
     this.dir = new THREE.Vector3(-0.45, 1, 0.6).normalize();          // da sud-ovest, alto (y in alto, z sud)
     const S = this.sole.shadow;
-    S.mapSize.set(2048, 2048); S.bias = -0.0004; S.normalBias = 0.04;
+    // 24-11 (Gabriele: «le ombre sotto le macchine a volte sembrano che stiano fluttuando»): il bias è in unità della
+    // profondità della camera delle ombre (600 m), quindi -0,0004 = 24 cm: quello che stava entro 24 cm dall'asfalto
+    // (fondo delle auto, 10-15 cm da terra) non faceva ombra e fra paraurti e ombra restava una striscia di sole.
+    // -0,0001 = 6 cm: l'ombra parte da sotto l'auto; niente righe (acne) né a mezzogiorno né al tramonto.
+    S.mapSize.set(2048, 2048); S.bias = -0.0001; S.normalBias = 0.04;
     Object.assign(S.camera, { left: -70, right: 70, top: 70, bottom: -70, near: 1, far: 600 });
     this.sole.castShadow = true;
     scene.add(this.emi, this.sole, this.sole.target);

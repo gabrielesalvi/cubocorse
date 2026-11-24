@@ -31,7 +31,9 @@ export class Environment {
     this.sun.shadow.mapSize.set(S, S);
     const R = quality.shadowRange || 70;
     Object.assign(this.sun.shadow.camera, { left: -R, right: R, top: R, bottom: -R, near: 1, far: 900 });
-    this.sun.shadow.bias = -0.00025;
+    // 24-11: come sui circuiti cittadini (gfx/pacchetto/mondo.js), il bias è in unità della profondità (900 m):
+    // -0,00025 = 22 cm di asfalto senza ombra sotto le auto; -0,0001 = 9 cm
+    this.sun.shadow.bias = -0.0001;
     this.sun.shadow.normalBias = 0.04;
     scene.add(this.sun);
     scene.add(this.sun.target);

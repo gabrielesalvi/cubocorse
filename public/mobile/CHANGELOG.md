@@ -30,8 +30,8 @@ e quella di prima resta consultabile dalla tendina dei record.
 - Le piste si caricano più in fretta, Monza soprattutto.
 - Le auto avversarie costano meno da disegnare: sul telefono resta più margine.
 - Anche gli alberi costano meno da disegnare, a Monza la metà di prima: stessa immagine.
-- I palazzi di Porto pesano circa la metà sul telefono: da lontano si disegnano più semplici, senza cambiare
-  l'aspetto. Le piste a cubetti si caricano anche un po' più in fretta.
+- I palazzi di Porto pesano circa la metà sul telefono e con la grafica Bassa: da lontano si disegnano più semplici,
+  senza cambiare l'aspetto. Le piste a cubetti si caricano anche un po' più in fretta.
 
 ### Record
 - I nomi con parolacce o offese non si possono usare: il gioco chiede di sceglierne un altro.

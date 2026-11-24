@@ -130,9 +130,16 @@ export class MondoPacchetto {
     return { track, rl, griglia };
   }
 
+  /** la qualità scelta; 24-11: ?ombre=<px> e ?raggioOmbre=<m> sostituiscono quelli della qualità (prove col registro dei
+   *  cali, ?ombre=0 = senza ombre) */
+  qualita() {
+    const Q0 = QUALITA[this.qk] || QUALITA.alto;
+    return { ...Q0, ...(Q.has('ombre') && Q0.ombre ? { ombre: +Q.get('ombre') || 0 } : {}), ...(Q.has('raggioOmbre') ? { raggioOmbre: +Q.get('raggioOmbre') } : {}) };
+  }
+
   /** ombre, risoluzione, Ultra, persone secondo la qualità; ora e meteo */
   applicaGrafica() {
-    const Qk = QUALITA[this.qk] || QUALITA.alto, sole = this.cielo.sole;
+    const Qk = this.qualita(), sole = this.cielo.sole;
     sole.castShadow = Qk.ombre > 0;
     if (Qk.ombre && sole.shadow.mapSize.x !== Qk.ombre) { sole.shadow.mapSize.set(Qk.ombre, Qk.ombre); sole.shadow.map?.dispose(); sole.shadow.map = null; }
     const raggio = Qk.raggioOmbre || 70;
@@ -159,7 +166,7 @@ export class MondoPacchetto {
 
   /** rev. 17: notte (ora «notte»): luci del circuito, fari delle auto, niente ombre del sole */
   accendiNotte() {
-    const on = this.notte, Qk = QUALITA[this.qk] || QUALITA.alto;
+    const on = this.notte, Qk = this.qualita();
     this.mondo?.userData.notte?.accendi(on);
     for (const f of this._fari || []) f.visible = on;
     for (const v of this._visuali || []) v.luciPosizione?.(on);   // 21-11: fanali posteriori accesi di notte

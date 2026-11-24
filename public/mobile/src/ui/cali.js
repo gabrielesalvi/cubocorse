@@ -192,7 +192,7 @@ export class RegistroCali {
     const ord = [...this.dts].sort((x, y) => x - y), tot = this.dts.reduce((s, x) => s + x, 0);
     const R = this.R, c = R?.domElement, b = this.batteria;
     return {
-      tipo: 'cali', quando: new Date().toISOString(), versione: VERSIONE,
+      tipo: 'cali', quando: new Date().toISOString(), versione: VERSIONE, prova: prova(),
       pista: this.app.pistaId?.() || this.app.settings.track, qual: this.app.settings.qual,
       secondi: r1(tot / 1000), fps: ord.length ? r1(1000 * ord.length / tot) : null, fps1: ord.length ? r1(1000 / ord[Math.floor(ord.length * 0.99)]) : null,
       peggiore: Math.round(ord.at(-1) || 0), fpsNormali: r1(mediana(this.buone)),
@@ -268,8 +268,13 @@ function cresce(prima, dopo) {
   return d.map((x) => `${x.k.replace(/^scenario \/ /, '')} +${x.dt + x.dto} k tri${x.dto > 20 ? ` (ombre +${x.dto})` : ''}`).join(', ');
 }
 
+/** parametri di prova nell'indirizzo (tutti tranne fps/cali), per sapere con cosa è stata fatta una tabella */
+function prova() {
+  return [...new URLSearchParams(globalThis.location?.search || '')].filter(([k]) => k !== 'fps' && k !== 'cali').map(([k, v]) => `${k}=${v}`).join('&');
+}
+
 function testoCali(d) {
-  const r = [`Cali · ${d.pista} · ${d.qual} · ${d.secondi} s · fps medi ${d.fps}, normali ${d.fpsNormali}, 1% ${d.fps1} · ${d.risoluzione} · ${d.corrente || ''} · ${d.dispositivo.gpu}`];
+  const r = [`Cali · ${d.pista} · ${d.qual}${d.prova ? ' [' + d.prova + ']' : ''} · ${d.secondi} s · fps medi ${d.fps}, normali ${d.fpsNormali}, 1% ${d.fps1} · ${d.risoluzione} · ${d.corrente || ''} · ${d.dispositivo.gpu}`];
   for (const e of d.episodi) r.push(`${tempo(e.t)} ${e.s} m (${e.giro}%) ${e.durata} s: ${e.fpsMin}/${e.rif} fps, CPU ${e.cpu} (${e.fis}+${e.dis}), GPU ${e.gpu ?? '—'}, ${e.chiamate} ch ${e.tri} k tri, ${e.colpa}; ${e.cresce || ''}`);
   return r.join('\n');
 }

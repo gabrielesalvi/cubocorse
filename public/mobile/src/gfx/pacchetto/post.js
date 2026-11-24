@@ -23,7 +23,13 @@ const PULIZIA = {
 };
 
 /** risoluzione della GTAO rispetto allo schermo (?ao=1 per la risoluzione piena) */
-const SCALA_AO = +(new URLSearchParams(globalThis.location?.search || '').get('ao') || 0.5);
+const QP = new URLSearchParams(globalThis.location?.search || '');
+const SCALA_AO = +(QP.get('ao') || 0.5);
+// 24-11 (registro dei cali: Ultra in modalità normale 31 fps, Alta 58): interruttori di prova per capire quale pezzo di
+// Ultra cresce con la città fitta. ?gtao=0 niente occlusione ambientale (e niente passata delle normali), ?msaa=0|2|4
+// campioni dell'antialias, ?bloom=0 niente bagliore. Senza parametri tutto come prima.
+const GTAO_ON = QP.get('gtao') !== '0', BLOOM_ON = QP.get('bloom') !== '0';
+const MSAA = QP.has('msaa') ? Math.max(0, Math.min(8, +QP.get('msaa') || 0)) : 4;
 const AO_LONTANO = 250, AO_PERSONE = 60;   // m: oltre, niente occlusione ambientale (vedi overrideVisibility)
 
 const FIRMA = 'vec3 getViewPosition(const in vec2 screenPosition, const in float depth) {';
@@ -50,11 +56,20 @@ export class Post {
   constructor(renderer, scene, camera) {
     this.r = renderer; this.camera = camera;
     const w = innerWidth, h = innerHeight, pr = renderer.getPixelRatio();
-    const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: 4 });
+    const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: MSAA });
     const C = (this.composer = new EffectComposer(renderer, rt));
     C.setPixelRatio(pr); C.setSize(w, h);
     C.addPass(new RenderPass(scene, camera));
     C.addPass(new ShaderPass(PULIZIA));
+    this.gtao = null;
+    if (GTAO_ON) this._gtao(scene, camera, w, h);
+    // senza tone mapping la scena sta sotto 1: brillano solo stop, fari e riflessi del sole
+    this.bloom = BLOOM_ON ? new UnrealBloomPass(new THREE.Vector2(w, h), 0.25, 0.4, 1.0) : null;
+    if (this.bloom) C.addPass(this.bloom);
+    C.addPass(new OutputPass());
+  }
+  /** occlusione ambientale GTAO (alla risoluzione SCALA_AO) */
+  _gtao(scene, camera, w, h) {
     this.gtao = new GTAOPass(scene, camera, w, h);
     // Giro libero (scene.userData.normaliPiatte, 18-11): le mesh unite delle mappe a tasselli sono a doppia faccia e alcune
     // pareti hanno i vertici nel verso opposto, e i tasselli preparati non salvano le normali dei materiali a facce piatte
@@ -90,7 +105,7 @@ export class Post {
     this.gtao.blendIntensity = 1.0;
     this.gtao.updateGtaoMaterial({ radius: 1.2, distanceExponent: 1.4, thickness: 2.0, scale: 1.0, samples: 12 });
     this.gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 12 });
-    if (renderer.capabilities.logarithmicDepthBuffer) {     // senza (?logdepth=0) lo shader originale va già bene
+    if (this.r.capabilities.logarithmicDepthBuffer) {     // senza (?logdepth=0) lo shader originale va già bene
       profonditaLog(this.gtao.gtaoMaterial, camera);
       profonditaLog(this.gtao.pdMaterial, camera);
     }
@@ -99,20 +114,17 @@ export class Post {
     // (la geometria della passata delle normali resta, ma con i riquadri di tassella.js è già meno della metà).
     const ss = this.gtao.setSize.bind(this.gtao);
     this.gtao.setSize = (w, h) => ss(Math.max(1, Math.round(w * SCALA_AO)), Math.max(1, Math.round(h * SCALA_AO)));
-    C.addPass(this.gtao);
-    // senza tone mapping la scena sta sotto 1: brillano solo stop, fari e riflessi del sole
-    this.bloom = new UnrealBloomPass(new THREE.Vector2(w, h), 0.25, 0.4, 1.0);
-    C.addPass(this.bloom);
-    C.addPass(new OutputPass());
+    this.composer.addPass(this.gtao);
   }
   /** 21-11: di notte il bagliore resta stretto attorno alle lampade (raggio più corto), così fari e lampioni non diventano
    *  palle di luce; di giorno com'era */
-  notte(on) { this.bloom.strength = on ? 0.3 : 0.25; this.bloom.radius = on ? 0.2 : 0.4; this.bloom.threshold = 1.0; }
+  notte(on) { if (!this.bloom) return; this.bloom.strength = on ? 0.3 : 0.25; this.bloom.radius = on ? 0.2 : 0.4; this.bloom.threshold = 1.0; }
   normaliPiatte(si) {
+    if (!this.gtao) return;
     const m = this.gtao.normalMaterial;
     m.flatShading = si; m.side = si ? THREE.DoubleSide : THREE.FrontSide; m.needsUpdate = true;
   }
   resize() { this.composer.setPixelRatio(this.r.getPixelRatio()); this.composer.setSize(innerWidth, innerHeight); }
   render() { this.composer.render(); }
-  dispose() { this.composer.renderTarget1.dispose(); this.composer.renderTarget2.dispose(); this.gtao.dispose(); this.bloom.dispose(); }
+  dispose() { this.composer.renderTarget1.dispose(); this.composer.renderTarget2.dispose(); this.gtao?.dispose(); this.bloom?.dispose(); }
 }

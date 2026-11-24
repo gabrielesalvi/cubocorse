@@ -28,7 +28,12 @@ const SCALA_AO = +(QP.get('ao') || 0.5);
 // 24-11 (registro dei cali: Ultra in modalità normale 31 fps, Alta 58): interruttori di prova per capire quale pezzo di
 // Ultra cresce con la città fitta. ?gtao=0 niente occlusione ambientale (e niente passata delle normali), ?msaa=0|2|4
 // campioni dell'antialias, ?bloom=0 niente bagliore. Senza parametri tutto come prima.
-const GTAO_ON = QP.get('gtao') !== '0', BLOOM_ON = QP.get('bloom') !== '0';
+// 24-11 sera (risultato: senza GTAO 55 fps, con 26,5; Gabriele: «proviamo a farla come hai detto tu»): la GTAO legge la
+// profondità che la scena ha già disegnato e ricava da lì le normali (three: setGBuffer con la sola profondità), invece di
+// ridisegnare tutta la scena vicina con le normali delle mesh (1,2 M triangoli in più per fotogramma). ?gtao=passata = il
+// modo di prima, per i confronti.
+const GTAO_MODO = QP.get('gtao') === '0' ? null : QP.get('gtao') === 'passata' ? 'passata' : 'profondita';
+const GTAO_ON = !!GTAO_MODO, BLOOM_ON = QP.get('bloom') !== '0';
 const MSAA = QP.has('msaa') ? Math.max(0, Math.min(8, +QP.get('msaa') || 0)) : 4;
 const AO_LONTANO = 250, AO_PERSONE = 60;   // m: oltre, niente occlusione ambientale (vedi overrideVisibility)
 
@@ -56,10 +61,18 @@ export class Post {
   constructor(renderer, scene, camera) {
     this.r = renderer; this.camera = camera;
     const w = innerWidth, h = innerHeight, pr = renderer.getPixelRatio();
-    const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: MSAA });
+    // con la GTAO dalla profondità il disegno della scena tiene anche la profondità (risolta dall'MSAA come il colore)
+    const prof = GTAO_MODO === 'profondita' ? new THREE.DepthTexture(w * pr, h * pr) : null;
+    const rt = new THREE.WebGLRenderTarget(w * pr, h * pr, { type: THREE.HalfFloatType, samples: MSAA, depthTexture: prof });
     const C = (this.composer = new EffectComposer(renderer, rt));
+    // il secondo target del composer è un clone del primo e la sua profondità condividerebbe la stessa texture (stessa
+    // sorgente → stesso oggetto WebGL): i passaggi a schermo intero ci riscriverebbero sopra prima della GTAO
+    if (prof) C.renderTarget2.depthTexture = new THREE.DepthTexture(w * pr, h * pr);
     C.setPixelRatio(pr); C.setSize(w, h);
-    C.addPass(new RenderPass(scene, camera));
+    const scena = new RenderPass(scene, camera), disegna = scena.render.bind(scena);
+    // il composer alterna i due target: qui si ricorda in quale ha disegnato la scena in questo fotogramma
+    scena.render = (r, w, read, ...x) => { this._rtScena = read; return disegna(r, w, read, ...x); };
+    C.addPass(scena);
     C.addPass(new ShaderPass(PULIZIA));
     this.gtao = null;
     if (GTAO_ON) this._gtao(scene, camera, w, h);
@@ -114,6 +127,16 @@ export class Post {
     // (la geometria della passata delle normali resta, ma con i riquadri di tassella.js è già meno della metà).
     const ss = this.gtao.setSize.bind(this.gtao);
     this.gtao.setSize = (w, h) => ss(Math.max(1, Math.round(w * SCALA_AO)), Math.max(1, Math.round(h * SCALA_AO)));
+    if (GTAO_MODO === 'profondita') {
+      const G = this.gtao, fai = G.render.bind(G);
+      G.setGBuffer(this.composer.renderTarget1.depthTexture);   // senza normali: NORMAL_VECTOR_TYPE 0, niente passata
+      G.gtaoMaterial.needsUpdate = true; G.pdMaterial.needsUpdate = true;
+      G.render = (r, ...x) => {
+        const d = this._rtScena?.depthTexture;
+        if (d) { G.depthTexture = d; G.gtaoMaterial.uniforms.tDepth.value = d; G.pdMaterial.uniforms.tDepth.value = d; }
+        return fai(r, ...x);
+      };
+    }
     this.composer.addPass(this.gtao);
   }
   /** 21-11: di notte il bagliore resta stretto attorno alle lampade (raggio più corto), così fari e lampioni non diventano

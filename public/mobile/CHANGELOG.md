@@ -36,6 +36,9 @@ e quella di prima resta consultabile dalla tendina dei record.
 ### Grafica
 - Sui circuiti di Roncadelle il pubblico costa circa la metà davanti alle tribune: le ombre degli spettatori si
   calcolano solo vicino alla telecamera e le persone lontane sono più semplici. Stessa immagine, meno cali in Ultra.
+- In Ultra, sui circuiti di Roncadelle, l'ombreggiatura ambientale (le ombre morbide sotto le auto e alla base di muri e
+  tribune) si calcola dall'immagine già disegnata invece di ridisegnare la scena: un terzo dei triangoli in meno per
+  fotogramma, quasi la stessa immagine.
 
 ### Record
 - I nomi con parolacce o offese non si possono usare: il gioco chiede di sceglierne un altro.

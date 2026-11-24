@@ -346,6 +346,7 @@ export class CarVisual {
   }
 
   _remesh() {
+    globalThis.cuboCorse?.cali?.ammaccata();   // registro dei cali (?fps=1)
     if (this.mesh) {
       this.mesh.geometry.dispose();
       this.body.remove(this.mesh);

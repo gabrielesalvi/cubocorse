@@ -21,7 +21,8 @@ import { Vetrina } from './ui/vetrina.js';
 import { caricaVersioni, versionePista, storiaPista, chiaveRecord } from './ui/versioni.js';   // 21-11: versioni delle piste
 import { mostraNovita, novitaDaMostrare } from './ui/novita.js';
 import { VERSIONE } from './versione.js';
-import { avviaMisura } from './ui/misura.js';   // 22-11 fase 2a: ?misura=1, prestazioni sul telefono
+import { avviaMisura } from './ui/misura.js';
+import { RegistroCali } from './ui/cali.js';   // 24-11: ?fps=1, registro dei cali di fotogrammi (tasto K)   // 22-11 fase 2a: ?misura=1, prestazioni sul telefono
 import { Telefono, preparaApp, schermoIntero } from './ui/tocco.js';       // 22-11 fase 2b-2d: comandi del telefono, app sulla Home
 
 const STEP = 1 / 120;
@@ -550,6 +551,7 @@ class App {
   }
 
   toMenu() {
+    if (this.mode === 'race' || this.mode === 'results') this.cali?.fineGara();
     // 21-11 sera (Gabriele): dal time trial col «Menu principale» un giro da record non si perde: prima la schermata della
     // sessione con il nome, poi (dal suo pulsante «Menu») il menu
     if (this.mode === 'race' && this.race?.timeTrial && !this.player.finished && REC.posizione(this.pistaRecord(), 'tempo', this.player.bestValido ?? Infinity) >= 0) {
@@ -719,9 +721,14 @@ class App {
   frame(now) {
     requestAnimationFrame((t) => this.frame(t));
     this.mondo?.inizioFotogramma?.();
+    if (this.cali === undefined) this.cali = Q.get('fps') === '1' || Q.get('cali') === '1' ? new RegistroCali(this) : null;
+    this.cali?.prima();
     const tCpu = performance.now();
-    this._frame(now);
-    if (this.perfOn) this.perfTick(now, performance.now() - tCpu);
+    try { this._frame(now); } finally {
+      const cpu = performance.now() - tCpu;
+      this.cali?.dopo(now, cpu);
+      if (this.perfOn) this.perfTick(now, cpu);
+    }
   }
 
   /** pannello prestazioni (tasto F): fps, tempo CPU, cosa arriva alla scheda video */
@@ -756,11 +763,13 @@ class App {
     if (!this.mondo || !this.race) return;        // la prima pista si sta ancora costruendo dietro il menu
     const race = this.race, W = this.mondo;
     const simulate = (this.mode === 'race' || this.mode === 'results') && !this.paused && !this.photo;
+    this._msFis = 0;
     if (simulate) {
       // rallenty dopo una distruzione: da 1 a 0,2 in un quinto di secondo
       const scala = this.distruzione ? Math.max(0.2, 1 - (this.clock - this.distruzione.t0) * 4) : 1;
       this.acc += dt * scala;
       let n = 0;
+      const tFis = performance.now();
       while (this.acc >= STEP && n < 12) {
         const guida = this.mode === 'race' && !this.player.finished;
         const inp = guida ? (this.autopilota ? this.autopilota() : this.input.sample(STEP, this.player.speed)) : { throttle: 0, brake: 0.3, steer: 0 };
@@ -773,6 +782,7 @@ class App {
         if (this.player.lap !== this._lapPrec) { this._lapPrec = this.player.lap; this._comGiroNuovo = true; }
       }
       if (n === 12) this.acc = 0;
+      this._msFis = performance.now() - tFis;   // registro dei cali
       this.raceClock += dt;
       this.handleEvents(dt);
       if (this._comGiroNuovo) { this._comGiroNuovo = false; this._comGiro = new Set(); }
@@ -822,6 +832,7 @@ class App {
     if (this.cheer > 0) this.cheer = Math.max(0, this.cheer - dt * 0.08);
     if (this.audio.ready) this.updateAudio(dt);
     if (this.mode === 'race') this.hud.update(dt, race, this.player, this.track);
+    const tDis = performance.now();
     W.disegna(t);
     // retrovisore nelle visuali cofano e abitacolo (non guardando indietro, non in foto né durante la distruzione)
     const specchio = (this.mode === 'race' || this.mode === 'results') && !this.photo && !this.distruzione && !this.rig.indietro
@@ -831,6 +842,7 @@ class App {
       const disegna = () => this.specchio.render(W.r, W.scene, this.pVis);
       if (W.conSpecchio) W.conSpecchio(this.pVis, disegna); else disegna();
     }
+    this._msDis = performance.now() - tDis;
     if (this.mode === 'race' && simulate) this.risoluzioneDinamica(dt);
     this.fpsAngolo(dt);
   }

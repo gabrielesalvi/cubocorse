@@ -567,4 +567,5 @@ body.tel-gas-auto #tocco:not(.mani) .tt.gas, body.tel-freno-auto #tocco:not(.man
   background: rgba(0,0,0,.6); font: 700 13px/1.4 ui-monospace, Menlo, Consolas, monospace; text-shadow: none; color: #d8f5d0; pointer-events: none; }
 #fpsbox.ok { color: #6cf08f; } #fpsbox.medio { color: #ffd23f; } #fpsbox.basso { color: #ff6a5a; }
 body.tocco #fpsbox, body.con-fps #fpsbox { display: block; }
+#fpsbox[data-cali]:not([data-cali=""])::after { content: ' · ' attr(data-cali); color: #ffd23f; }   /* registro dei cali (?fps=1) */
 body.tocco #hud .tl { top: 28px; }

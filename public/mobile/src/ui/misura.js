@@ -15,7 +15,7 @@ const attendi = (ms) => new Promise((r) => setTimeout(r, ms));
 const leggi = () => { try { return JSON.parse(localStorage.getItem(CHIAVE) || 'null'); } catch { return null; } };
 const scrivi = (d) => { try { localStorage.setItem(CHIAVE, JSON.stringify(d)); } catch { /* niente */ } };
 
-function dispositivo() {
+export function dispositivo() {
   let gpu = '';
   try {
     const gl = document.createElement('canvas').getContext('webgl');

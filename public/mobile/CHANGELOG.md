@@ -33,6 +33,10 @@ e quella di prima resta consultabile dalla tendina dei record.
 - I palazzi di Porto pesano circa la metà sul telefono e con la grafica Bassa: da lontano si disegnano più semplici,
   senza cambiare l'aspetto. Le piste a cubetti si caricano anche un po' più in fretta.
 
+### Grafica
+- Sui circuiti di Roncadelle il pubblico costa circa la metà davanti alle tribune: le ombre degli spettatori si
+  calcolano solo vicino alla telecamera e le persone lontane sono più semplici. Stessa immagine, meno cali in Ultra.
+
 ### Record
 - I nomi con parolacce o offese non si possono usare: il gioco chiede di sceglierne un altro.
 - Mentre scrivi il nome, sotto la casella compare un avviso se il nome non si può usare.

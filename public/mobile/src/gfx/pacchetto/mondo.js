@@ -92,7 +92,7 @@ export async function costruisciMondo(dati, v, avanza = () => {}) {
     }],
     // rev. 14: maxischermi e pannelli pubblicitari messi nell'editor (solo da vedere, niente collisioni)
     ['arredi', () => { if (lv.arredi?.elementi?.length) add(arredi(lv.arredi.elementi, terreno, { asse: circuito.asse.punti }), true); }],
-    ['pubblico', () => { if (lv.pubblico) { const P = pubblico(lv.pubblico, terreno, { maxPersone: Infinity, blocco: 50, asse: circuito.asse.punti }); P.visible = false; g.userData.pubblico = P; add(P, true);
+    ['pubblico', () => { if (lv.pubblico) { const P = pubblico(lv.pubblico, terreno, { maxPersone: Infinity, blocco: +(new URLSearchParams(globalThis.location?.search || '').get('bloccoPersone') || 25), asse: circuito.asse.punti }); P.visible = false; g.userData.pubblico = P; add(P, true);
       P.traverse((m) => { if (m.userData.semplice || m.userData.lontana) m.castShadow = false; }); } }],   // rev. 15 ter: tutte le persone, a riquadri di 50 m (main.js accende solo quelli vicini)
     ['traguardo', () => add(superficie(lv.traguardo.poligoni, { terreno, colore: (p) => SEGNI[p.colore], scarto: 0.11, nome: 'Traguardo', passo: 1e9, lato: 0, alza }))],
   );

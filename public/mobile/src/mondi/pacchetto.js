@@ -27,7 +27,12 @@ export const QUALITA = {
 const RAGGIO_PERSONE = +(Q.get('persone') || 220);   // m; ?persone=<metri> per provare altri raggi
 const GOMME_VICINE = 70;                             // m: pile di gomme dettagliate entro (rev. 17)
 const PERSONE_SPECCHIO = [25, 120];                  // m: nello specchietto complete / solo busto e testa (19-11)
-const VICINE = 90;                                   // m: entro, persone complete (braccia); oltre, la versione da lontano
+// 24-11 (registro dei cali di Gabriele, Ultra: davanti alle tribune il pubblico valeva ~660 k triangoli più 160-420 k di
+// ombre): riquadri di persone da 25 m invece di 50 (mondo.js, ?bloccoPersone=), complete entro 50 m invece di 90, ombre
+// solo entro 30 m. Inquadrature fisse davanti alle tribune di Roncadelle-Nenni B in Ultra: persone 1,15 → 0,64 M
+// triangoli (vista + ombre), differenze 0,00-0,16% dei pixel. ?vicine=90&ombrePersone=90&bloccoPersone=50 = come prima.
+const VICINE = +(Q.get('vicine') || 50);             // m: entro, persone complete (braccia); oltre, la versione da lontano
+const OMBRE_PERSONE = +(Q.get('ombrePersone') || 30);   // m: entro, le persone (complete) fanno ombra
 
 function gpuNome(r) {
   try { const gl = r.getContext(), ext = gl.getExtension('WEBGL_debug_renderer_info'); return ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ''; } catch { return ''; }
@@ -223,10 +228,12 @@ export class MondoPacchetto {
     const cam = this.camera.position;
     for (const q of this._gomme || []) { const d = Math.hypot(q.c.x - cam.x, q.c.z - cam.z) - q.r; q.o.visible = d < GOMME_VICINE; q.lo.visible = d >= GOMME_VICINE; }
     const L = this._persone; if (!L) return;
-    const on = this._personeOn !== false, R = RAGGIO_PERSONE;
+    const on = this._personeOn !== false, R = RAGGIO_PERSONE, VIC = this.vicinePersone ?? VICINE, OMB = this.ombrePersone ?? OMBRE_PERSONE;
     for (const q of L) {
       const d = on ? Math.hypot(q.c.x - cam.x, q.c.z - cam.z) - q.r : Infinity;
-      if (q.lo) { q.o.visible = d < VICINE; q.lo.visible = d >= VICINE && d < R; } else q.o.visible = d < R;
+      if (q.lo) { q.o.visible = d < VIC; q.lo.visible = d >= VIC && d < R; } else q.o.visible = d < R;
+      if (q.ombra === undefined) q.ombra = q.o.castShadow;
+      q.o.castShadow = q.ombra && d < OMB;
     }
   }
 

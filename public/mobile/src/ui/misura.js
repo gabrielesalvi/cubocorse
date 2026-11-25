@@ -106,6 +106,9 @@ export function avviaMisura(app, qual = 'basso') {
 
 async function corri(app, d, el) {
   app.misura = true;
+  // errori fuori dalla preparazione (moduli, shader, contesto WebGL perso): finiscono a schermo nel cartellino
+  addEventListener('error', (e) => { window.__errore ||= e.message; });
+  addEventListener('unhandledrejection', (e) => { window.__errore ||= String(e.reason?.message || e.reason); });
   const s = app.settings;
   for (const [id, v] of PISTE) {
     if (d.risultati.some((r) => r.id === id)) continue;
@@ -118,12 +121,36 @@ async function corri(app, d, el) {
     UI.showScreen('menu', false);
     Object.assign(s, { track: id, versione: v || s.versione, qual: d.qual, modo: 'gara', nAuto: 8, laps: 9, grid: 'ultimo', meteo: 'sereno', danni: 'estetici' });
     const t0 = performance.now();
-    await app.prepara();
-    const carico = +((performance.now() - t0) / 1000).toFixed(1);
-    await app.go();
-    app.race.pilotaAutomatico();
-    UI.showScreen('menu', false);
-    while (!app.race.started) await attendi(200);
+    // 25-11 (Gabriele: misura ferma su «carico la pista» da oltre un minuto, telefono fermo sulla schermata): a schermo il
+    // passaggio in corso, i secondi e l'eventuale errore; un errore o 120 s senza via = pista segnata e si passa alla dopo
+    window.__errore = null;
+    let fase = 'preparo il mondo';
+    const orologio = setInterval(() => {
+      const sec = Math.round((performance.now() - t0) / 1000), st = $id('mstato')?.textContent || '';
+      el.innerHTML = cartellino(`Misura ${d.risultati.length + 1}/${PISTE.length} · ${nome}<br>carico la pista… ${sec} s · ${fase}${st ? ` · ${st}` : ''}${window.__errore ? `<br><span style="color:#ff8a80">errore: ${String(window.__errore).split('\n')[0].slice(0, 160)}</span>` : ''}`);
+    }, 1000);
+    let carico;
+    try {
+      const scadenza = (ms, cosa) => attendi(ms).then(() => { throw new Error(`ferma da ${ms / 1000} s: ${cosa}`); });
+      await Promise.race([app.prepara(), scadenza(120000, 'preparo il mondo')]);
+      if (!app.pronta()) throw new Error(window.__errore ? String(window.__errore).split('\n')[0] : 'mondo non pronto dopo la preparazione');
+      carico = +((performance.now() - t0) / 1000).toFixed(1);
+      fase = 'parto'; await app.go();
+      app.race.pilotaAutomatico();
+      UI.showScreen('menu', false);
+      fase = 'aspetto il via';
+      const t1 = performance.now();
+      while (!app.race.started) { if (performance.now() - t1 > 60000) throw new Error('il via non arriva da 60 s'); await attendi(200); }
+    } catch (e) {
+      clearInterval(orologio);
+      console.error('misura', id, e);
+      d.risultati.push({ id, nome, nota: `bloccata: ${e.message}`.slice(0, 200), carico: +((performance.now() - t0) / 1000).toFixed(1) });
+      d.incorso = null; scrivi(d);
+      el.innerHTML = cartellino(`Misura ${d.risultati.length}/${PISTE.length} · ${nome}<br><span style="color:#ff8a80">${e.message}</span><br>passo alla pista dopo…`);
+      await attendi(4000);
+      continue;
+    }
+    clearInterval(orologio);
     await attendi(2000);               // primi secondi: shader e partenza
     const dts = await misuraFotogrammi(SECONDI, (sec, fps) => {
       el.innerHTML = cartellino(`Misura ${d.risultati.length + 1}/${PISTE.length} · ${nome}<br>${Math.round(sec)}/${SECONDI} s · ${fps.toFixed(0)} fps`);

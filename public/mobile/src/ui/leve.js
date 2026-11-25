@@ -1,7 +1,7 @@
 // Leva analogica dello sterzo e cursore verticale di gas e freno (fase 2e, 23-11-2026, decisioni di Gabriele: sterzo a
 // tasti, leva o inclinazione e pedali a tasti o cursore, tutti combinabili; il cursore deve dosare gas e freno).
 // Qui solo le formule, senza pagina né three: le usano tocco.js e i test in Node (tests/leve.mjs).
-//  - leva: nasce dove appoggi il pollice (come in Ciapa la 6: tecnica imparata, codice non copiato); conta lo spostamento
+//  - leva: nasce dove appoggi il pollice; conta lo spostamento
 //    orizzontale diviso il raggio, con la stessa curva della levetta del controller (pad.js PREDEFINITI.sterzo); oltre
 //    INSEGUE raggi il centro segue il pollice, così tornando indietro il centro non si perde;
 //  - cursore: posizione ASSOLUTA lungo la barra (0 = in fondo, 1 = in cima); sopra la tacca gas, sotto freno, tutti e due

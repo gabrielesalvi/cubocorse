@@ -35,6 +35,7 @@ export class RegistroCali {
   daCapo() {
     this.F = null; this.buone = []; this.dts = []; this.episodi = []; this.ep = null; this.foto = null; this.fotoBuona = null;
     this.prossimaFoto = 0; this.inizio = null; this.ammaccate = 0; this.finestre = 0; this.R = null; this.gpuAcc = { ms: 0, n: 0 };
+    this.somme = { n: 0, cpu: 0, fis: 0, dis: 0, gpu: 0, gn: 0, ch: 0, tri: 0 };   // 25-11: medie di tutto il giro
   }
 
   // ------------------------------------------------------------------ prima e dopo ogni fotogramma
@@ -81,6 +82,8 @@ export class RegistroCali {
       shader: nuovi, ammaccate: this.ammaccate, visuale: a.rig?.mode || '',
     };
     this.ammaccate = 0; this.gpuAcc = { ms: 0, n: 0 };
+    const S = this.somme; S.n++; S.cpu += f.cpu; S.fis += f.fis; S.dis += f.dis; S.ch += f.chiamate || 0; S.tri += f.tri || 0;
+    if (f.gpu != null) { S.gpu += f.gpu; S.gn++; }
     const calo = this.buone.length >= 6 && fps < SOGLIA * rif;
     if (!calo) {
       this.buone.push(fps); if (this.buone.length > 60) this.buone.shift();
@@ -194,6 +197,12 @@ export class RegistroCali {
     return {
       tipo: 'cali', quando: new Date().toISOString(), versione: VERSIONE, prova: prova(),
       pista: this.app.pistaId?.() || this.app.settings.track, qual: this.app.settings.qual,
+      // 25-11 (tabella dell'iPhone: «auto», 22 fps costanti, nessun calo = nessun dettaglio): la qualità davvero in uso,
+      // la frequenza dello schermo, il tetto a 60 e le medie di tutto il giro anche quando i cali non ci sono
+      qualEffettiva: this.app.mondo?.qk || this.app.mondo?.renderer?.qKey || null, hz: this.app.hz || null,
+      tetto60: (this.app._tetto?.ogni || 1) > 1,
+      medie: (() => { const S = this.somme, m = (x) => (S.n ? r1(x / S.n) : null);
+        return { cpu: m(S.cpu), fis: m(S.fis), dis: m(S.dis), gpu: S.gn ? r1(S.gpu / S.gn) : null, chiamate: S.n ? Math.round(S.ch / S.n) : null, tri: S.n ? Math.round(S.tri / S.n) : null }; })(),
       secondi: r1(tot / 1000), fps: ord.length ? r1(1000 * ord.length / tot) : null, fps1: ord.length ? r1(1000 / ord[Math.floor(ord.length * 0.99)]) : null,
       peggiore: Math.round(ord.at(-1) || 0), fpsNormali: r1(mediana(this.buone)),
       risoluzione: c ? `${c.width}×${c.height}` : '', pr: R ? r1(R.getPixelRatio()) : null, timerGpu: !!this.gpu,
@@ -217,9 +226,10 @@ export class RegistroCali {
       <td>${e.cpu} ms <span style="color:#999">(${e.fis}+${e.dis})</span></td><td>${e.gpu ?? '—'}${e.gpu != null ? ' ms' : ''}</td><td>${e.chiamate} · ${e.tri} k</td>
       <td>${e.colpa}</td><td>${e.cresce || '—'}${e.shader ? ` · ${e.shader} shader nuovi` : ''}${e.ammaccate ? ` · ${e.ammaccate} ammaccate` : ''}</td></tr>`).join('');
     el.innerHTML = `<div style="background:rgba(10,12,16,.95);border:1px solid #ffd23f;border-radius:12px;padding:14px 16px;max-width:min(96vw,1100px);max-height:90vh;overflow:auto">
-      <div style="font-weight:700;color:#ffd23f;font-size:16px">Registro dei cali · ${d.pista} · qualità ${d.qual}</div>
+      <div style="font-weight:700;color:#ffd23f;font-size:16px">Registro dei cali · ${d.pista} · qualità ${d.qual}${d.qualEffettiva && d.qualEffettiva !== d.qual ? ' → ' + d.qualEffettiva : ''}</div>
       <div style="margin:4px 0 8px;color:#ccc">${d.secondi} s di gara · fps medi ${d.fps} · normali ${d.fpsNormali} · 1% lenti ${d.fps1} · peggiore ${d.peggiore} ms ·
         ${d.risoluzione} (scala ${d.pr})${d.corrente ? ` · ${d.corrente}` : ''} · tempo scheda video ${d.timerGpu ? 'misurato' : 'non disponibile in questo browser'}</div>
+      ${d.medie?.cpu != null ? `<div style="margin:0 0 8px;color:#ccc">media del giro: CPU ${d.medie.cpu} ms (${d.medie.fis}+${d.medie.dis}) · scheda video ${d.medie.gpu ?? '—'}${d.medie.gpu != null ? ' ms' : ''} · ${d.medie.chiamate} chiamate · ${d.medie.tri} k triangoli${d.hz ? ` · schermo ${d.hz} Hz${d.tetto60 ? ', tetto a 60 fps' : ''}` : ''}</div>` : ''}
       ${d.episodi.length ? `<table style="border-collapse:collapse" cellpadding="3"><tr style="color:#aaa;text-align:left"><td>quando</td><td>dove</td><td>durata</td><td>fps min / normali</td>
         <td>CPU JS (fisica+disegno)</td><td>scheda video</td><td>chiamate · triangoli</td><td>colpa</td><td>cosa cresce rispetto a prima</td></tr>${righe}</table>` : '<p>Nessun calo finora.</p>'}
       <div style="margin-top:8px;color:#aaa;font-size:12px">${d.dispositivo.gpu}</div>
@@ -274,7 +284,9 @@ function prova() {
 }
 
 function testoCali(d) {
-  const r = [`Cali · ${d.pista} · ${d.qual}${d.prova ? ' [' + d.prova + ']' : ''} · ${d.secondi} s · fps medi ${d.fps}, normali ${d.fpsNormali}, 1% ${d.fps1} · ${d.risoluzione} · ${d.corrente || ''} · ${d.dispositivo.gpu}`];
+  const M = d.medie || {};
+  const r = [`Cali · ${d.pista} · ${d.qual}${d.qualEffettiva && d.qualEffettiva !== d.qual ? ' → ' + d.qualEffettiva : ''}${d.prova ? ' [' + d.prova + ']' : ''} · ${d.secondi} s · fps medi ${d.fps}, normali ${d.fpsNormali}, 1% ${d.fps1} · ${d.risoluzione} · ${d.corrente || ''} · ${d.dispositivo.gpu}`];
+  if (M.cpu != null) r.push(`media del giro: CPU ${M.cpu} (${M.fis}+${M.dis}), GPU ${M.gpu ?? '—'}, ${M.chiamate} ch ${M.tri} k tri${d.hz ? ` · schermo ${d.hz} Hz${d.tetto60 ? ', tetto a 60' : ''}` : ''}`);
   for (const e of d.episodi) r.push(`${tempo(e.t)} ${e.s} m (${e.giro}%) ${e.durata} s: ${e.fpsMin}/${e.rif} fps, CPU ${e.cpu} (${e.fis}+${e.dis}), GPU ${e.gpu ?? '—'}, ${e.chiamate} ch ${e.tri} k tri, ${e.colpa}; ${e.cresce || ''}`);
   return r.join('\n');
 }

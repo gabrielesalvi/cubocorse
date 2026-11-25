@@ -23,7 +23,7 @@ import { mostraNovita, novitaDaMostrare } from './ui/novita.js';
 import { VERSIONE } from './versione.js';
 import { avviaMisura } from './ui/misura.js';
 import { RegistroCali } from './ui/cali.js';   // 24-11: ?fps=1, registro dei cali di fotogrammi (tasto K)   // 22-11 fase 2a: ?misura=1, prestazioni sul telefono
-import { Telefono, preparaApp, schermoIntero } from './ui/tocco.js';       // 22-11 fase 2b-2d: comandi del telefono, app sulla Home
+import { Telefono, preparaApp, schermoIntero, DISPOSITIVO_TOCCO } from './ui/tocco.js';       // 22-11 fase 2b-2d: comandi del telefono, app sulla Home
 
 const STEP = 1 / 120;
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -720,6 +720,7 @@ class App {
 
   frame(now) {
     requestAnimationFrame((t) => this.frame(t));
+    if (this.saltaFotogramma(now)) return;
     this.mondo?.inizioFotogramma?.();
     if (this.cali === undefined) this.cali = Q.get('fps') === '1' || Q.get('cali') === '1' ? new RegistroCali(this) : null;
     this.cali?.prima();
@@ -729,6 +730,28 @@ class App {
       this.cali?.dopo(now, cpu);
       if (this.perfOn) this.perfTick(now, cpu);
     }
+  }
+
+  /**
+   * 25-11 (Gabriele: sul Samsung a 120 Hz «lagga»: 100-120 fps nei tratti leggeri, 30-50 in quelli fitti): sui telefoni
+   * con lo schermo a 100 Hz o più si disegna un fotogramma su due (120 → 60, 144 → 72). Ritmo costante invece di salti,
+   * telefono meno caldo, meno batteria. La frequenza dello schermo si misura di continuo sugli intervalli fra le chiamate
+   * del browser (un quarto più breve degli ultimi 60), così un caricamento lento non inganna. ?fps60=0 = senza tetto.
+   * Ritorna true se questo fotogramma si salta (niente fisica né disegno: il passo successivo recupera il tempo).
+   */
+  saltaFotogramma(now) {
+    if (!DISPOSITIVO_TOCCO || Q.get('fps60') === '0') return false;
+    const S = this._tetto || (this._tetto = { d: [], prec: 0, ogni: 1, k: 0 });
+    if (S.prec) { S.d.push(now - S.prec); if (S.d.length > 60) S.d.shift(); }
+    S.prec = now;
+    if (S.d.length === 60 && ++S.k % 60 === 0) {
+      const q = [...S.d].sort((a, b) => a - b)[15];
+      S.ogni = q > 0 && q < 10 ? Math.max(2, Math.round(16.67 / q)) : 1;
+      this.hz = q > 0 && q < 20 ? Math.round(1000 / q) : null;   // sotto 50 Hz la misura dice quanto è lento il gioco, non lo schermo
+    }
+    if (S.ogni === 1) return false;
+    S.n = ((S.n || 0) + 1) % S.ogni;
+    return S.n !== 0;
   }
 
   /** pannello prestazioni (tasto F): fps, tempo CPU, cosa arriva alla scheda video */
@@ -990,6 +1013,9 @@ class App {
    */
   risoluzioneDinamica(dt) {
     const q = this.settings.qual;
+    // 25-11 (Gabriele: «eviterei di scendere così tanto che l'esperienza viene uno schifo»): sul telefono la risoluzione
+    // resta quella della qualità (Telefono: un pixel per punto dello schermo, ~840×390) e non scende più fino a 0,45
+    if (DISPOSITIVO_TOCCO) return;
     if (this.misura || (q !== 'auto' && q !== 'basso' && q !== 'telefono')) return;      // misura (fase 2a): risoluzione fissa, numeri confrontabili
     if (this.raceClock < 3) return;
     const W = this.mondo, D = this.dyn || (this.dyn = { t: 0, n: 0, avvisato: false });

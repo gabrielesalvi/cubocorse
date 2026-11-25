@@ -22,7 +22,10 @@ e quella di prima resta consultabile dalla tendina dei record.
 - Dopo il via, mentre guidi, i comandi diventano semitrasparenti e le scritte dei pedali spariscono; quando togli le mani
   dallo schermo tornano del tutto visibili.
 - Gas automatico e freno automatico, ognuno acceso o spento per conto suo: con tutti e due basta sterzare.
-- Una qualità grafica pensata per il telefono, scelta da sola.
+- Una qualità grafica pensata per il telefono, scelta da sola. Sul telefono la risoluzione resta fissa: non scende più
+  fino a rendere l'immagine sgranata.
+- Sui telefoni con lo schermo a 120 Hz il gioco va a 60 fotogrammi al secondo costanti: più regolare, il telefono si
+  scalda meno e consuma meno batteria.
 - Si può aggiungere alla schermata Home: si apre a schermo intero e funziona anche senza rete. Su iPhone e iPad il gioco
   spiega come fare; se il link si apre dentro Instagram, Facebook o un'altra app, spiega prima come aprirlo in Safari.
 - In classifica i giri fatti col telefono hanno il simbolo del telefono, qualunque comando si usi, nella stessa classifica

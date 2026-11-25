@@ -208,6 +208,7 @@ export class RegistroCali {
       risoluzione: c ? `${c.width}×${c.height}` : '', pr: R ? r1(R.getPixelRatio()) : null, timerGpu: !!this.gpu,
       corrente: b ? (b.charging ? 'in carica' : `a batteria ${Math.round(b.level * 100)}%`) : null,
       dispositivo: dispositivo(), episodi: this.episodi,
+      fotoNormale: this.fotoBuona,   // 25-11: com'è fatta la scena a fps normali (per parti), anche senza cali
     };
   }
 

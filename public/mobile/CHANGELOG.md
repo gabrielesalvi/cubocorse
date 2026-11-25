@@ -23,7 +23,8 @@ e quella di prima resta consultabile dalla tendina dei record.
   dallo schermo tornano del tutto visibili.
 - Gas automatico e freno automatico, ognuno acceso o spento per conto suo: con tutti e due basta sterzare.
 - Una qualità grafica pensata per il telefono, scelta da sola.
-- Si può aggiungere alla schermata Home: si apre a schermo intero e funziona anche senza rete.
+- Si può aggiungere alla schermata Home: si apre a schermo intero e funziona anche senza rete. Su iPhone e iPad il gioco
+  spiega come fare; se il link si apre dentro Instagram, Facebook o un'altra app, spiega prima come aprirlo in Safari.
 - In classifica i giri fatti col telefono hanno il simbolo del telefono, qualunque comando si usi, nella stessa classifica
   di tastiera e controller.
 - Il menu si legge e si usa anche sugli schermi piccoli.

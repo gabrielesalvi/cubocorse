@@ -317,13 +317,21 @@ export class Telefono {
 
 
 // ------------------------------------------------------------------ app sulla schermata Home (fase 2d)
-const IPHONE = /iPhone|iPod/.test(navigator.userAgent);
+const UA = navigator.userAgent;
+const IPHONE = /iPhone|iPod/.test(UA);
+// 25-11 (Gabriele): anche iPad (Safari su iPad si presenta come un Mac: lo si riconosce dallo schermo touch)
+const IPAD = /iPad/.test(UA) || (/Macintosh/.test(UA) && (navigator.maxTouchPoints || 0) > 1);
+// browser dentro le app (link aperti da Instagram, Facebook, Messenger, LinkedIn, TikTok, Snapchat, Line, app Google):
+// lì «Aggiungi alla schermata Home» non c'è, prima bisogna aprire la pagina in Safari. WhatsApp e Telegram usano la
+// vista di Safari, che non si distingue da Safari: per loro vale la riga «se non lo vedi» dell'avviso.
+const DENTRO_APP = /FBAN|FBAV|FB_IAB|Instagram|LinkedInApp|musical_ly|BytedanceWebview|Snapchat|Line\/|GSA\//.test(UA);
 const COME_APP = matchMedia('(display-mode: standalone), (display-mode: fullscreen)').matches || navigator.standalone === true;
 const CHIAVE_AVVISO_HOME = 'cubo-corse-avviso-home';
 
 /**
  * service worker (il telefono tiene i file del gioco, versione nel nome della cache), pulsante «Installa» su Android,
- * istruzioni per la schermata Home su iPhone (una volta, si chiudono con ✕)
+ * istruzioni per la schermata Home su iPhone e iPad (una volta, si chiudono con ✕; dai browser dentro le app ogni volta,
+ * con «apri in Safari»)
  */
 export function preparaApp(versione) {
   if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(versione)}`).catch((e) => console.warn('service worker', e));
@@ -342,9 +350,12 @@ export function preparaApp(versione) {
   });
   let visto = false;
   try { visto = localStorage.getItem(CHIAVE_AVVISO_HOME) === '1'; } catch { /* niente */ }
-  if (IPHONE && !visto) {
+  if ((IPHONE || IPAD) && (DENTRO_APP || !visto)) {
     const d = document.createElement('div'); d.id = 'avvisohome';
-    d.innerHTML = `<span>Per giocare a <b>schermo intero</b>: tocca <b>Condividi</b> <svg viewBox="0 0 20 24" width="14" height="17" aria-hidden="true"><path d="M10 2v13M5 7l5-5 5 5M3 11v10h14V11" fill="none" stroke="currentColor" stroke-width="2"/></svg> e poi <b>Aggiungi alla schermata Home</b>.</span><button aria-label="Chiudi">✕</button>`;
+    const condividi = '<svg viewBox="0 0 20 24" width="14" height="17" aria-hidden="true"><path d="M10 2v13M5 7l5-5 5 5M3 11v10h14V11" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+    d.innerHTML = DENTRO_APP
+      ? `<span>Per giocare a <b>schermo intero</b>: apri questa pagina <b>in Safari</b> (menu <b>···</b> → <b>Apri in Safari</b> o <b>Apri nel browser</b>), poi tocca <b>Condividi</b> ${condividi} e <b>Aggiungi alla schermata Home</b>.</span><button aria-label="Chiudi">✕</button>`
+      : `<span>Per giocare a <b>schermo intero</b>: tocca <b>Condividi</b> ${condividi} e poi <b>Aggiungi alla schermata Home</b>. Se non lo vedi, apri prima la pagina in Safari.</span><button aria-label="Chiudi">✕</button>`;
     d.querySelector('button').onclick = () => { d.remove(); try { localStorage.setItem(CHIAVE_AVVISO_HOME, '1'); } catch { /* niente */ } };
     header.after(d);
   }

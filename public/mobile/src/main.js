@@ -23,12 +23,16 @@ import { mostraNovita, novitaDaMostrare } from './ui/novita.js';
 import { VERSIONE } from './versione.js';
 import { avviaMisura } from './ui/misura.js';
 import { RegistroCali } from './ui/cali.js';   // 24-11: ?fps=1, registro dei cali di fotogrammi (tasto K)   // 22-11 fase 2a: ?misura=1, prestazioni sul telefono
-import { Telefono, preparaApp, schermoIntero, DISPOSITIVO_TOCCO } from './ui/tocco.js';       // 22-11 fase 2b-2d: comandi del telefono, app sulla Home
+import { Telefono, preparaApp, schermoIntero, DISPOSITIVO_TOCCO } from './ui/tocco.js';
+import { leggiProve, preparaProve } from './ui/prove.js';       // 22-11 fase 2b-2d: comandi del telefono, app sulla Home
 
 const STEP = 1 / 120;
 const nextFrame = () => new Promise((r) => requestAnimationFrame(() => r()));
 const $id = (id) => document.getElementById(id);
 const Q = new URLSearchParams(location.search);
+// 25-11: strumenti di prova accesi da dentro il gioco (ui/prove.js, 5 tocchi sul logo): valgono come nell'indirizzo, che
+// nell'app sulla schermata Home non si può cambiare. L'indirizzo vince.
+for (const [k, v] of Object.entries(leggiProve())) if (!Q.has(k)) Q.set(k, v);
 // visibile solo da Tailscale (rete di casa): link «Apri nello Studio» per i circuiti di Circuit Studio
 const STUDIO = /^100\.\d+\.\d+\.\d+$|\.ts\.net$/.test(location.hostname) ? `http://${location.hostname.endsWith('.ts.net') ? location.hostname : '100.64.65.118'}:8112/viewer/` : null;
 
@@ -172,6 +176,7 @@ class App {
     const bv = $id('bnovita'); if (bv) bv.textContent = `Novità · v${VERSIONE.replace(/-pre$/, ' (in arrivo)')}`;
     if (novitaDaMostrare() && !Q.get('misura')) this.apriNovita();
     preparaApp(VERSIONE);
+    preparaProve({ cali: (on) => { this.cali = on ? new RegistroCali(this) : null; } });
     this.last = performance.now();
     requestAnimationFrame((t) => this.frame(t));
     this.prepara();                   // la pista scelta si costruisce dietro il menu

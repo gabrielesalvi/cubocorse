@@ -5,6 +5,7 @@
 // /misura su tools/serve.py, solo dentro Tailscale) e restano nel browser: se il telefono ricarica la pagina a metà (memoria
 // piena, succede su iPhone) si riparte dalla pista dopo, e la tabella lo segnala.
 // Le impostazioni di chi gioca non si toccano: si salvano all'inizio e si rimettono alla fine. Niente record né storico.
+import { togliMisura } from './prove.js';
 import * as UI from './ui.js';
 
 const CHIAVE = 'cubo-corse-misura';
@@ -133,6 +134,7 @@ async function corri(app, d, el) {
     d.incorso = null; scrivi(d);
   }
   d.finita = true; d.finitaAlle = new Date().toISOString();
+  togliMisura();   // 25-11: misura avviata dal pannello delle prove (app sulla Home): all'avvio dopo non riparte
   if (app.mode === 'race' || app.mode === 'results') app.toMenu();
   UI.showScreen('menu', false);
   d.inviato = await invia({ ...d, originali: undefined });

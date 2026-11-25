@@ -751,7 +751,8 @@ class App {
     S.prec = now;
     if (S.d.length === 60 && ++S.k % 60 === 0) {
       const q = [...S.d].sort((a, b) => a - b)[15];
-      S.ogni = q > 0 && q < 10 ? Math.max(2, Math.round(16.67 / q)) : 1;
+      // schermi veri: 120 Hz → 8,3 ms, 144 → 6,9, 240 → 4,2; sotto 3 ms il browser non segue lo schermo: niente tetto
+      S.ogni = q >= 3 && q < 10 ? Math.min(4, Math.max(2, Math.round(16.67 / q))) : 1;
       this.hz = q > 0 && q < 20 ? Math.round(1000 / q) : null;   // sotto 50 Hz la misura dice quanto è lento il gioco, non lo schermo
     }
     if (S.ogni === 1) return false;

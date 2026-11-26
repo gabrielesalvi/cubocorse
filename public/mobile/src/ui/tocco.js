@@ -344,7 +344,7 @@ export function preparaApp(versione) {
     if (!b) {
       b = document.createElement('button'); b.id = 'binstalla'; b.className = 'link minstalla'; b.textContent = 'Installa l\'app';
       b.title = 'Cubo Corse sulla schermata Home: si apre a schermo intero e funziona anche senza rete';
-      header.insertBefore(b, header.querySelector('.mnovita'));
+      const rif = header.querySelector('.mnovita'); (rif ? rif.parentNode : header).insertBefore(b, rif);   // 26-11: i pulsanti stanno in .mtop
     }
     b.onclick = async () => { try { e.prompt(); await e.userChoice; } catch { /* niente */ } b.remove(); };
   });

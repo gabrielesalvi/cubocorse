@@ -174,6 +174,7 @@ class App {
     this.linkStudio();
     // 21-11: versione del gioco in alto nel menu; le novità si aprono da sole una volta dopo ogni aggiornamento
     const bv = $id('bnovita'); if (bv) bv.textContent = `Novità · v${VERSIONE.replace(/-pre$/, ' (in arrivo)')}`;
+    const bv2 = $id('bnovita2'); if (bv2) bv2.textContent = `Novità · versione ${VERSIONE.replace(/-pre$/, ' (in arrivo)')}`;
     if (novitaDaMostrare() && !Q.get('misura')) this.apriNovita();
     preparaApp(VERSIONE);
     preparaProve({ cali: (on) => { this.cali = on ? new RegistroCali(this) : null; } });
@@ -379,12 +380,15 @@ class App {
       try { await this.audio.init(); } catch (e) { console.warn('audio', e); }
     }
     this.audio.ready && this.audio.ui();
+    this.audio.setMuted(!!this.settings.muto);
     // la pista scelta non è ancora pronta: si parte appena lo è (il menu resta com'è, il pulsante dice a che punto)
     if (!this.pronta()) { this._viaInAttesa = true; this.prepara(); this.statoCarico(0.05, $id('mstato')?.textContent); return; }
     this._viaInAttesa = false;
     const W = this.mondo, s = this.settings;
     if (W.tipo === 'pacchetto') { const wantQ = s.qual === 'auto' ? W.qualitaAuto() : s.qual; if (W.qualitaAttuale() !== wantQ) W.impostaQualita(wantQ); }
     this.setupRace(true);
+    UI.apriFoglio(null);
+    for (const id of ['impostazioni', 'novita', 'storico', 'conferma']) UI.showScreen(id, false);
     UI.showScreen('menu', false);
     UI.showScreen('results', false);
     UI.showScreen('hud', true);
@@ -409,6 +413,9 @@ class App {
     else if (['modo', 'nAuto', 'grid'].includes(k) && W) this.setupRace(false);
     else if (k === 'linea' && this.lineaMesh) this.lineaMesh.visible = !!s.linea;
     else if (k === 'pubblico' && W?.impostaPubblico) W.impostaPubblico(!!s.pubblico);
+    else if (k === 'muto') this.impostaMuto(!!s.muto);
+    else if (k === 'guida' || k === 'sterzo') this.applicaGuida();       // 26-11: anche dalla pausa, vale da subito
+    else if (k === 'pedali') this.input.pedali = s.pedali || 'manuali';
     if (['telSterzo', 'telPedali', 'telLeva', 'telGas', 'telFreno'].includes(k)) this.telefono.aggiornaSchema();
     if (['track', 'versione', 'modo'].includes(k)) this.recordMenu();
   }
@@ -425,14 +432,13 @@ class App {
     I.on('KeyP', () => { if (this.mode === 'race' || this.mode === 'results') this.togglePhoto(); });
     I.on('Escape', () => {
       if (this.padUI.aperta) { if (this.pad.cattura) this.pad.annullaCattura(); else this.padUI.chiudi(); return; }
-      if ($id('storico').classList.contains('show')) return UI.showScreen('storico', false);
+      if (this.chiudiInCima()) return;
       if (this.photo) return this.togglePhoto();
       if (this.mode === 'race') this.setPause(!this.paused);
     });
     I.on('KeyM', () => {
-      const m = this.audio.toggleMute();
-      $id('bmute').textContent = 'Audio: ' + (m ? 'spento' : 'acceso');
-      UI.toast(m ? 'Audio spento' : 'Audio acceso', 1000);
+      this.impostaMuto(!this.settings.muto);
+      UI.toast(this.settings.muto ? 'Audio spento' : 'Audio acceso', 1000);
     });
     I.on('KeyH', () => $id('hud').classList.toggle('hidden'));
     I.on('KeyG', () => {
@@ -442,9 +448,7 @@ class App {
       UI.toast(this.settings.ghost ? 'Ghost visibile' : 'Ghost nascosto', 1000);
     });
     I.on('KeyL', () => {
-      this.settings.linea = !this.settings.linea;
-      if (this.lineaMesh) this.lineaMesh.visible = this.settings.linea;
-      UI.saveSettings(this.settings);
+      this.impostaLinea(!this.settings.linea);
       UI.toast(this.settings.linea ? 'Traiettoria ideale visibile' : 'Traiettoria ideale nascosta', 1000);
     });
     I.on('KeyF', () => {
@@ -460,8 +464,21 @@ class App {
         this.audio.ready && this.audio.ui();
         const a = b.dataset.act;
         if (a === 'resume') this.setPause(false);
-        if (a === 'restart') { $id('rrecord')?._confermaNome?.(); UI.showScreen('results', false); this.setPause(false); this.go(); }
-        if (a === 'menu') this.toMenu();
+        // 26-11: dalla pausa Ricomincia ed Esci chiedono conferma; dai risultati no (la gara è già finita)
+        if (a === 'restart') {
+          if (this.paused) return this.conferma('Ricominciare la gara da capo?', 'Ricomincia', () => this.ricomincia());
+          this.ricomincia();
+        }
+        if (a === 'menu') {
+          if (this.paused) return this.conferma('Uscire al menu principale? La gara in corso si perde.', 'Esci', () => this.toMenu());
+          this.toMenu();
+        }
+        if (a === 'confNo') this.conferma(null);
+        if (a === 'confSi') { const f = this._conf; this.conferma(null); f && f(); }
+        if (a === 'via') { UI.apriFoglio(null); this.go(); }
+        if (a === 'chiudiFoglio') UI.apriFoglio(null);
+        if (a === 'impostazioni') { UI.apriFoglio(null); UI.showScreen('impostazioni', true); }
+        if (a === 'chiudiImp') UI.showScreen('impostazioni', false);
         if (a === 'storico') { $id('stab').innerHTML = REC.htmlStorico(REC.storico(), this.nomiPiste || {}); UI.showScreen('storico', true); }
         if (a === 'chiudiStorico') UI.showScreen('storico', false);
         if (a === 'novita') this.apriNovita();
@@ -469,9 +486,89 @@ class App {
         if (a === 'fineTT') this.fineTimeTrial();
         if (a === 'pad') this.padUI.apri();
         if (a === 'photo') { this.setPause(false); this.togglePhoto(); }
-        if (a === 'mute') { const m = this.audio.toggleMute(); b.textContent = 'Audio: ' + (m ? 'spento' : 'acceso'); }
+        if (a === 'mute') this.impostaMuto(!this.settings.muto);
+        if (a === 'lineaTog') this.impostaLinea(!this.settings.linea);
+        if (a === 'visuale' && this.mode === 'race') { this.hud.camLabel(VISUALI_NOMI[this.rig.next(this.pVis)]); UI.toast(VISUALI_NOMI[this.rig.mode], 1200); }
       };
     });
+    // pausa: classifica o una parte delle impostazioni nel riquadro di destra
+    document.querySelectorAll('#pause [data-pv]').forEach((b) => { b.onclick = () => this.vistaPausa(b.dataset.pv); });
+    this.aggiornaInterruttori();
+  }
+
+  /** gara ricominciata (dalla pausa dopo la conferma, o «Rigioca» dai risultati) */
+  ricomincia() { $id('rrecord')?._confermaNome?.(); UI.showScreen('results', false); this.setPause(false); this.go(); }
+
+  /** finestra «sei sicuro?»: testo + etichetta del pulsante + cosa fare; senza testo si chiude */
+  conferma(testo, etichetta, fatto) {
+    this._conf = testo ? fatto : null;
+    if (testo) { $id('conftesto').textContent = testo; $id('confsi').textContent = etichetta; }
+    UI.showScreen('conferma', !!testo);
+  }
+
+  /** chiude la cosa più in alto (conferma, storico, novità, pannello del menu, impostazioni); false se non c'era niente */
+  chiudiInCima() {
+    if ($id('conferma').classList.contains('show')) { this.conferma(null); return true; }
+    if ($id('storico').classList.contains('show')) { UI.showScreen('storico', false); return true; }
+    if ($id('novita').classList.contains('show')) { UI.showScreen('novita', false); return true; }
+    if (this.mode === 'menu' && UI.foglioAperto()) { UI.apriFoglio(null); return true; }
+    if ($id('impostazioni').classList.contains('show')) { UI.showScreen('impostazioni', false); return true; }
+    return false;
+  }
+
+  impostaMuto(m) {
+    this.settings.muto = m;
+    this.audio.setMuted(m);
+    UI.saveSettings(this.settings);
+    this.aggiornaInterruttori();
+  }
+  impostaLinea(on) {
+    this.settings.linea = on;
+    if (this.lineaMesh) this.lineaMesh.visible = on;
+    UI.saveSettings(this.settings);
+    this.aggiornaInterruttori();
+  }
+  /** interruttori della pausa e segmenti delle impostazioni allineati alle scelte (anche quando cambiano coi tasti M e L) */
+  aggiornaInterruttori() {
+    const s = this.settings;
+    const bm = $id('bmute');
+    bm.innerHTML = s.muto ? '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M22 9l-6 6M16 9l6 6"/></svg>Audio no'
+      : '<svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>Audio sì';
+    bm.classList.toggle('sel', !s.muto);
+    $id('blinea').classList.toggle('sel', !!s.linea);
+    for (const [id, v] of [['audio', 1 - !s.muto], ['linea', +!!s.linea]]) {
+      $id(id)?.querySelectorAll('button').forEach((b, i) => b.classList.toggle('sel', i === v));
+    }
+  }
+
+  /** riquadro di destra della pausa: classifica e tempi, oppure una parte delle impostazioni (spostata qui dalla sua schermata) */
+  vistaPausa(v) {
+    document.querySelectorAll('#pause [data-pv]').forEach((b) => b.classList.toggle('sel', b.dataset.pv === v));
+    const dx = $id('pause').querySelector('.pdestra'), corpo = $id('impcorpo');
+    const classifica = v === 'classifica';
+    dx.classList.toggle('imp', !classifica);
+    if (classifica) { if (corpo.parentElement !== $id('impostazioni')) $id('impostazioni').appendChild(corpo); this.classificaPausa(); }
+    else { UI.categoria(v); if (corpo.parentElement !== dx) dx.appendChild(corpo); }
+  }
+
+  /** classifica e tempi della gara in corso, per la pausa */
+  classificaPausa() {
+    const el = $id('pclass'), R = this.race, p = this.player;
+    if (!R || !p) { el.innerHTML = ''; return; }
+    const nome = this.nomiPiste?.[this.pistaId()] || this.pista().nome;
+    const chip = (t) => `<span class="chip">${t}</span>`;
+    const tempi = chip(`Migliore ${UI.fmt(p.best)}`) + chip(`Ultimo ${UI.fmt(p.lapTimes.at(-1))}`) + (p.pen ? chip(`Penalità +${p.pen} s`) : '');
+    if (R.timeTrial) {
+      el.innerHTML = `<div class="ptit">Time trial · ${nome}</div><div class="chips">${tempi}${chip(`Giri fatti ${Math.max(0, p.lap - 1)}`)}</div>`;
+      return;
+    }
+    const st = R.standings(), lead = st[0], T = this.track;
+    const righe = st.map((c, i) => {
+      let gap = '—';
+      if (i > 0) { const dl = lead.dist - c.dist; gap = dl > T.length ? `+${Math.floor(dl / T.length)} g` : '+' + (dl / Math.max(20, c.speed || 40)).toFixed(1); }
+      return `<tr class="${c === p ? 'io' : ''}"><td class="n">${i + 1}</td><td>${c === p ? 'Tu' : c.nome}</td><td class="a">${c.spec.nome}</td><td class="t">${gap}</td></tr>`;
+    }).join('');
+    el.innerHTML = `<div class="ptit">Giro ${Math.max(1, Math.min(R.laps, p.lap || 1))} di ${R.laps} · ${nome}</div><table class="ptab">${righe}</table><div class="chips">${tempi}</div>`;
   }
 
   /** modalità foto: camera libera, obiettivo, esposizione (nel mondo voxel anche messa a fuoco, sfocatura e filtri), PNG */
@@ -497,7 +594,7 @@ class App {
   /** ○ del controller nei menu: chiude la schermata in cima, o riprende la gara dalla pausa */
   indietroPad() {
     if (this.padUI.aperta) return this.padUI.chiudi();
-    if ($id('storico').classList.contains('show')) return UI.showScreen('storico', false);
+    if (this.chiudiInCima()) return;
     if (this.photo) return this.togglePhoto();
     if (this.mode === 'race' && this.paused) return this.setPause(false);
     const d = document.activeElement && document.activeElement.closest && document.activeElement.closest('details[open]');
@@ -528,6 +625,9 @@ class App {
 
   setPause(on) {
     this.paused = on;
+    document.body.classList.toggle('in-pausa', on);
+    if (on) this.vistaPausa('classifica');
+    else { this.conferma(null); if ($id('impcorpo').parentElement !== $id('impostazioni')) $id('impostazioni').appendChild($id('impcorpo')); }
     UI.showScreen('pause', on);
   }
 
@@ -597,7 +697,10 @@ class App {
       ? `<select id="mrecv" title="Versione della pista: quando cambia in un modo che sposta i tempi, la classifica riparte">${[...storia].reverse().map((e) => `<option value="${e.v}" ${e.v === v ? 'selected' : ''}>v${e.v}${e.v === att ? ' (attuale)' : data(e.dal)}</option>`).join('')}</select>`
       : `<span title="Versione della pista: quando cambia in un modo che sposta i tempi, la classifica riparte">v${att}</span>`;
     el.innerHTML = `<div class="rec-sub">${this.nomiPiste?.[pista] || pista} ${scelta} · ${REC.nomeCategoria(cat)} · giro migliore</div>` +
-      REC.htmlBoard(REC.board(this.pistaRecord(v), cat), -1, 5);
+      REC.htmlBoard(REC.board(this.pistaRecord(v), cat), -1, 10);
+    // 26-11: il record della pista scelta anche sotto le tessere del menu (versione attuale)
+    const primo = REC.board(this.pistaRecord(att), cat)[0], tr = $id('trec');
+    if (tr) tr.innerHTML = primo ? `<svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/></svg>Record ${UI.fmt(primo.tempo)} · ${primo.nome.replace(/[<>&]/g, '')}` : 'Nessun record: il primo giro pulito è tuo';
     const sel = $id('mrecv');
     if (sel) { sel.onchange = () => { this._recV = { pista, v: +sel.value }; this.recordMenu(); }; sel.onkeydown = (e) => e.stopPropagation(); }
   }

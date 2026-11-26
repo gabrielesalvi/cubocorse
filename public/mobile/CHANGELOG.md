@@ -6,6 +6,16 @@ e quella di prima resta consultabile dalla tendina dei record.
 
 ## Non ancora pubblicato
 
+### Menu e pausa
+- Menu principale rifatto: l'auto al centro, tre tessere per pista, sessione e atmosfera, e un VIA grande. Tocchi una
+  tessera e da destra entra solo quella scelta. Sul telefono non si scorre più e il VIA non copre niente.
+- Impostazioni in una schermata sola (Comandi, Guida, Grafica, Audio, Info), dall'ingranaggio in alto a destra.
+  Ora e meteo stanno nella tessera «Atmosfera»; record e storico nel trofeo.
+- Pausa nuova: a sinistra Riprendi e le azioni, a destra la classifica con i tempi. Comandi, guida, grafica e audio si
+  cambiano senza uscire dalla gara; audio, traiettoria, visuale e foto sono a un tocco.
+- Ricomincia ed Esci dalla pausa chiedono conferma.
+- L'audio spento resta spento anche alla partita dopo.
+
 ### Guida
 - Controller con «Aiuti allo sterzo: No»: ora l'auto ha la stessa fisica di sempre, solo senza i tre aiuti allo sterzo.
   Prima, per sbaglio, guidava con la fisica degli avversari.

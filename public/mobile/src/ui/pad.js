@@ -314,9 +314,10 @@ export class Pad {
 // ------------------------------------------------------------------ fuoco «spaziale» per i menu col controller
 const SEL = 'button, .card, .carc, .sw, summary, input[type=range], select';
 function schermoAttivo() {
-  for (const id of ['padcfg', 'storico', 'results', 'pause', 'menu']) {
+  // 26-11: conferma, novità e impostazioni sopra il resto; nel menu, il pannello aperto da destra
+  for (const id of ['conferma', 'padcfg', 'storico', 'novita', 'impostazioni', 'results', 'pause', 'menu']) {
     const el = document.getElementById(id);
-    if (el && el.classList.contains('show')) return el;
+    if (el && el.classList.contains('show')) return (id === 'menu' && el.querySelector('.foglio.aperto')) || el;
   }
   const ph = document.getElementById('photo');
   if (ph && !ph.classList.contains('hidden')) return ph;

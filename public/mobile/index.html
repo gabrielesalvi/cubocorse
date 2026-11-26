@@ -31,91 +31,139 @@
     <div id="loadmsg">Preparo la pista…</div>
   </div>
 
-  <!-- menu principale -->
+  <!-- menu principale (26-11: «Garage» — riepilogo a tessere, l'auto al centro, un pannello da destra per ogni scelta) -->
   <pre id="perf" class="hidden"></pre>
   <div id="specchio" class="specchio hidden"></div>
   <div id="menu" class="screen">
     <header>
       <div class="logo">CUBO<span>CORSE</span></div>
-      <div class="tag">GT a voxel e circuiti di città</div>
-      <a id="astudio" class="link-viewer hidden" target="_blank" rel="noopener" title="Il circuito nel visualizzatore di Circuit Studio (solo da Tailscale)">Apri nello Studio</a>
-      <button id="bnovita" data-act="novita" class="link mnovita" title="Le novità di questa versione">Novità</button>
+      <div class="mtop">
+        <button id="bnovita" data-act="novita" class="link mnovita" title="Le novità di questa versione">Novità</button>
+        <button class="ico" data-foglio="record" aria-label="Record" title="Record e storico delle gare"><svg viewBox="0 0 24 24"><path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0V4z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg></button>
+        <button class="ico" data-act="impostazioni" aria-label="Impostazioni" title="Impostazioni"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg></button>
+      </div>
     </header>
-    <section class="col mpista">
-      <h3>Circuito</h3>
-      <div id="tracks" class="piste"></div>
-      <div id="mcirc" class="mcirc"></div>
-      <div class="row solo-pacchetto"><label title="A = strade vere com'erano; B = allargata con criterio (barriere, vie di fuga)">Versione</label><div class="seg" id="versione"></div></div>
-      <div class="row solo-pacchetto"><label title="Dove potrebbero stare tribune e pubblico (il circuito non cambia)">Spalti e pubblico</label><div class="seg" id="pubblico"></div></div>
-      <h3>Record</h3>
-      <div id="mrecord" class="mrecord"></div>
-      <button data-act="storico" class="link">Storico delle gare</button>
+    <section class="tessere">
+      <button class="tessera" data-foglio="pista"><span class="tic trk" id="tpistaic"></span><span class="ttx"><small id="tpistat">Pista</small><b id="tpista"></b></span><i>›</i></button>
+      <button class="tessera" data-foglio="sessione"><span class="tic"><svg viewBox="0 0 24 24"><path d="M4 22V4M4 4h13l-2 4 2 4H4"/></svg></span><span class="ttx"><small>Sessione</small><b id="tsess"></b></span><i>›</i></button>
+      <button class="tessera" data-foglio="atmosfera"><span class="tic"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3"/><path d="M8 1.5v1.5M2.5 8H1M3.6 3.6l1 1M14.4 3.6l-1 1M18 18a4 4 0 0 0 0-8 5 5 0 0 0-9.6 1.5A3.5 3.5 0 0 0 9 18z"/></svg></span><span class="ttx"><small>Atmosfera</small><b id="tatm"></b></span><i>›</i></button>
+      <button class="trec" data-foglio="record" id="trec"></button>
     </section>
-    <section class="col mauto">
-      <h3>Auto e livrea</h3>
+    <section class="garage">
       <div class="vetrina">
         <canvas id="vetrina" title="Trascina per girare l'auto"></canvas>
         <button class="freccia sx" id="autoprec" aria-label="Auto precedente">‹</button>
         <button class="freccia dx" id="autosucc" aria-label="Auto successiva">›</button>
-        <div id="mauto" class="mauto-nome"></div>
       </div>
-      <div id="mstat" class="mstat"></div>
-      <div id="cars" class="scelta-auto"></div>
-      <div id="liveries" class="swatches"></div>
-      <div class="row"><label title="Come si disegnano Astore, Calabrone e Airone (le auto di Circuit Studio)">Modelli GT</label><div class="seg" id="stileAuto"></div></div>
-    </section>
-    <section class="col mimp">
-      <h3>Sessione</h3>
-      <div class="row"><label>Modalità</label><div class="seg" id="modo"></div></div>
-      <div class="row solo-gara"><label>Giri</label><div class="stepper" data-k="laps" data-min="1" data-max="20"><button data-step="-1">−</button><b id="laps">3</b><button data-step="1">+</button></div></div>
-      <div class="row solo-gara"><label>Avversari</label><div class="seg" id="diff"></div></div>
-      <div class="row solo-tempo"><label>Ghost</label><div class="seg" id="ghost"></div></div>
-      <p class="nota solo-tempo">Si parte 200 m prima dell'ultima curva e il cronometro scatta sul traguardo, già lanciati. Danni spenti.</p>
-      <div class="tendine">
-        <details class="tendina solo-gara" data-t="gara">
-          <summary><span>Gara</span><small class="riass"></small></summary>
-          <div class="row"><label>Auto in gara</label><div class="stepper" data-k="nAuto" data-min="1" data-max="10"><button data-step="-1">−</button><b>10</b><button data-step="1">+</button></div></div>
-          <div class="row"><label>Partenza</label><div class="seg" id="grid"></div></div>
-          <div class="row"><label>Penalità</label><div class="seg multi" id="pen"><button data-k="penLimiti" title="Uscite con 4 ruote: 5 avvisi, poi +5 s; tagli +5 s">Limiti pista</button><button data-k="penContatti" title="+5 s a chi tampona">Contatti</button></div></div>
-          <div class="row"><label>Danni</label><div class="seg" id="danni"></div></div>
-        </details>
-        <details class="tendina" data-t="guida">
-          <summary><span>Guida</span><small class="riass"></small></summary>
-          <div class="row"><label title="Agile: l'ESC aiuta anche a far girare l'auto nelle curve lente. Composta: solo contro il sovrasterzo">Guida</label><div class="seg" id="guida"></div></div>
-          <div class="row"><label title="Quanto oltre la tenuta girano le ruote con un colpo di tasto; ogni pista ricorda la sua scelta">Sterzo (tastiera)</label><div class="seg" id="sterzo"></div></div>
-          <div class="row solo-desktop"><label>Pedali (tastiera)</label><div class="seg" id="pedali"></div></div>
-          <div class="row"><label>Traiettoria</label><div class="seg" id="linea"></div></div>
-        </details>
-        <details class="tendina" data-t="atmosfera">
-          <summary><span>Atmosfera</span><small class="riass"></small></summary>
-          <div class="row"><label>Ora</label><div class="seg" id="ora"></div></div>
-          <div class="row"><label>Meteo</label><div class="seg" id="meteo"></div></div>
-        </details>
-        <details class="tendina" data-t="grafica">
-          <summary><span>Grafica</span><small class="riass"></small></summary>
-          <div class="row"><label>Qualità</label><div class="seg" id="qual"></div></div>
-        </details>
-        <details class="tendina" data-t="comandi">
-          <summary><span>Comandi</span><small class="riass" id="mpadstato">Tastiera</small></summary>
-          <div class="row solo-tocco"><label title="Come si sterza col telefono">Sterzo</label><div class="seg" id="telSterzo"></div></div>
-          <div class="row solo-tocco"><label title="Come si danno gas e freno col telefono">Pedali</label><div class="seg" id="telPedali"></div></div>
-          <div class="row solo-tocco"><label title="Accelera da solo dove si può e alza il piede prima delle curve; il tuo freno vince sempre">Gas automatico</label><div class="seg" id="telGas"></div></div>
-          <div class="row solo-tocco"><label title="Frena da solo prima delle curve, anche col gas premuto; il tuo freno vince sempre">Freno automatico</label><div class="seg" id="telFreno"></div></div>
-          <div class="row solo-tocco solo-incl-menu"><label title="Quanto inclinare il telefono per sterzare a fondo">Inclinazione</label><div class="seg" id="telSens"></div></div>
-          <div class="row solo-tocco solo-leva-menu"><label title="Quanto spostare il pollice per sterzare a fondo">Leva</label><div class="seg" id="telLeva"></div></div>
-          <button data-act="pad" class="link">Impostazioni del controller</button>
-          <div class="keys solo-desktop">
-            <span><kbd>↑</kbd><kbd>W</kbd> gas</span><span><kbd>↓</kbd><kbd>S</kbd> freno</span><span><kbd>←</kbd><kbd>→</kbd> sterzo</span><span><kbd>Spazio</kbd> freno mano</span>
-            <span><kbd>C</kbd> visuale</span><span><kbd>R</kbd> in pista</span><span><kbd>P</kbd> foto</span><span><kbd>Esc</kbd> pausa</span><span><kbd>M</kbd> audio</span><span><kbd>H</kbd> HUD</span><span><kbd>F</kbd> fps</span><span><kbd>L</kbd> linea</span><span><kbd>G</kbd> ghost</span><span><kbd>B</kbd> dietro</span><span><kbd>Mouse</kbd> ruota</span>
-          </div>
-        </details>
+      <div class="gpiede">
+        <div class="ginfo">
+          <div id="mauto" class="mauto-nome"></div>
+          <div id="mstat" class="mstat"></div>
+          <div id="liveries" class="swatches"></div>
+        </div>
+        <div class="gvia">
+          <div id="mstato" class="mstato"></div>
+          <button id="go" class="go"><span class="go-testo">VIA!</span><i class="go-barra"></i></button>
+        </div>
       </div>
-      <button id="go" class="go"><span class="go-testo">VIA!</span><i class="go-barra"></i></button>
-      <div id="mstato" class="mstato"></div>
     </section>
-    <footer>
-      <div id="credits">Monza: tracciato © OpenStreetMap contributors (ODbL) · quote EU-DEM 25 m (Copernicus) via OpenTopoData · Roncadelle (Circuit Studio): DBT Regione Lombardia 2009, quote LiDAR Ministero dell'Ambiente e della Sicurezza Energetica – Piano Straordinario di Telerilevamento Ambientale (CC BY 4.0), © OpenStreetMap contributors (ODbL) · three.js (MIT)</div>
-    </footer>
+
+    <!-- pannelli che entrano da destra -->
+    <div class="velo-f" data-act="chiudiFoglio"></div>
+    <aside class="foglio" data-f="pista">
+      <div class="ft"><h3>Pista</h3><button class="ico" data-act="chiudiFoglio" aria-label="Chiudi">✕</button></div>
+      <div class="fc">
+        <div id="mcirc" class="mcirc"></div>
+        <div class="row solo-pacchetto"><label title="A = strade vere com'erano; B = allargata con criterio (barriere, vie di fuga)">Versione</label><div class="seg" id="versione"></div></div>
+        <a id="astudio" class="link-viewer hidden" target="_blank" rel="noopener" title="Il circuito nel visualizzatore di Circuit Studio (solo da Tailscale)">Apri nello Studio</a>
+        <div id="tracks" class="piste"></div>
+      </div>
+      <div class="fb"><button data-act="chiudiFoglio">Fatto</button><button class="go" data-act="via">VIA!</button></div>
+    </aside>
+    <aside class="foglio" data-f="sessione">
+      <div class="ft"><h3>Sessione</h3><button class="ico" data-act="chiudiFoglio" aria-label="Chiudi">✕</button></div>
+      <div class="fc">
+        <div class="row"><label>Modalità</label><div class="seg" id="modo"></div></div>
+        <div class="row solo-gara"><label>Giri</label><div class="stepper" data-k="laps" data-min="1" data-max="20"><button data-step="-1">−</button><b id="laps">3</b><button data-step="1">+</button></div></div>
+        <div class="row solo-gara"><label>Avversari</label><div class="seg" id="diff"></div></div>
+        <div class="row solo-tempo"><label>Ghost del giro migliore</label><div class="seg" id="ghost"></div></div>
+        <p class="nota solo-tempo">Si parte 200 m prima dell'ultima curva e il cronometro scatta sul traguardo, già lanciati. Danni spenti.</p>
+        <h4 class="solo-gara">Regole della gara</h4>
+        <div class="row solo-gara"><label>Auto in gara</label><div class="stepper" data-k="nAuto" data-min="1" data-max="10"><button data-step="-1">−</button><b>10</b><button data-step="1">+</button></div></div>
+        <div class="row solo-gara"><label>Partenza</label><div class="seg" id="grid"></div></div>
+        <div class="row solo-gara"><label>Penalità</label><div class="seg multi" id="pen"><button data-k="penLimiti" title="Uscite con 4 ruote: 5 avvisi, poi +5 s; tagli +5 s">Limiti pista</button><button data-k="penContatti" title="+5 s a chi tampona">Contatti</button></div></div>
+        <div class="row solo-gara"><label>Danni</label><div class="seg" id="danni"></div></div>
+      </div>
+      <div class="fb"><button data-act="chiudiFoglio">Fatto</button><button class="go" data-act="via">VIA!</button></div>
+    </aside>
+    <aside class="foglio" data-f="atmosfera">
+      <div class="ft"><h3>Atmosfera</h3><button class="ico" data-act="chiudiFoglio" aria-label="Chiudi">✕</button></div>
+      <div class="fc">
+        <div class="row"><label>Ora</label><div class="seg" id="ora"></div></div>
+        <div class="row"><label>Meteo</label><div class="seg" id="meteo"></div></div>
+      </div>
+      <div class="fb"><button data-act="chiudiFoglio">Fatto</button><button class="go" data-act="via">VIA!</button></div>
+    </aside>
+    <aside class="foglio" data-f="record">
+      <div class="ft"><h3>Record</h3><button class="ico" data-act="chiudiFoglio" aria-label="Chiudi">✕</button></div>
+      <div class="fc">
+        <div id="mrecord" class="mrecord"></div>
+        <button data-act="storico" class="link">Storico delle gare</button>
+      </div>
+    </aside>
+  </div>
+
+  <!-- impostazioni: una schermata sola, dal menu (⚙) e dalla pausa (dove la parte destra si sposta nel riquadro della pausa) -->
+  <div id="impostazioni" class="screen">
+    <nav class="rail">
+      <div class="rt"><button class="ico" data-act="chiudiImp" aria-label="Indietro">‹</button><h2>Impostazioni</h2></div>
+      <button class="cat sel" data-cat="comandi"><svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 0 1 4 4v2a3 3 0 0 1-5.4 1.8L15 14H9l-1.6 1.8A3 3 0 0 1 2 14v-2a4 4 0 0 1 4-4z"/><path d="M7 11v3M5.5 12.5h3"/></svg>Comandi</button>
+      <button class="cat" data-cat="guida"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M3.5 10.5l6 1M20.5 10.5l-6 1M12 14.5V21"/></svg>Guida</button>
+      <button class="cat" data-cat="grafica"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Grafica</button>
+      <button class="cat" data-cat="audio"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>Audio</button>
+      <button class="cat" data-cat="info"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5h.01"/></svg>Info</button>
+    </nav>
+    <div class="corpo" id="impcorpo">
+      <section class="cat-p sel" data-cat="comandi">
+        <h3>Comandi <small id="mpadstato">Tastiera</small></h3>
+        <div class="row solo-tocco"><label title="Come si sterza col telefono">Sterzo</label><div class="seg" id="telSterzo"></div></div>
+        <div class="row solo-tocco"><label title="Come si danno gas e freno col telefono">Pedali</label><div class="seg" id="telPedali"></div></div>
+        <div class="row solo-tocco solo-incl-menu"><label title="Quanto inclinare il telefono per sterzare a fondo">Inclinazione</label><div class="seg" id="telSens"></div></div>
+        <div class="row solo-tocco solo-leva-menu"><label title="Quanto spostare il pollice per sterzare a fondo">Leva</label><div class="seg" id="telLeva"></div></div>
+        <div class="row solo-tocco"><label title="Accelera da solo dove si può e alza il piede prima delle curve; il tuo freno vince sempre">Gas automatico</label><div class="seg" id="telGas"></div></div>
+        <div class="row solo-tocco"><label title="Frena da solo prima delle curve, anche col gas premuto; il tuo freno vince sempre">Freno automatico</label><div class="seg" id="telFreno"></div></div>
+        <div class="row solo-desktop"><label title="Quanto oltre la tenuta girano le ruote con un colpo di tasto; ogni pista ricorda la sua scelta">Sterzo da tastiera</label><div class="seg" id="sterzo"></div></div>
+        <div class="row solo-desktop"><label>Pedali da tastiera</label><div class="seg" id="pedali"></div></div>
+        <button data-act="pad" class="riga-link">Controller · curve, mappatura, vibrazione</button>
+        <div class="keys solo-desktop">
+          <span><kbd>↑</kbd><kbd>W</kbd> gas</span><span><kbd>↓</kbd><kbd>S</kbd> freno</span><span><kbd>←</kbd><kbd>→</kbd> sterzo</span><span><kbd>Spazio</kbd> freno mano</span>
+          <span><kbd>C</kbd> visuale</span><span><kbd>R</kbd> in pista</span><span><kbd>P</kbd> foto</span><span><kbd>Esc</kbd> pausa</span><span><kbd>M</kbd> audio</span><span><kbd>H</kbd> HUD</span><span><kbd>F</kbd> fps</span><span><kbd>L</kbd> linea</span><span><kbd>G</kbd> ghost</span><span><kbd>B</kbd> dietro</span><span><kbd>Mouse</kbd> ruota</span>
+        </div>
+      </section>
+      <section class="cat-p" data-cat="guida">
+        <h3>Guida</h3>
+        <div class="row"><label>Stile</label><div class="seg" id="guida"></div></div>
+        <p class="nota">Agile: l'ESC aiuta anche a far girare l'auto nelle curve lente. Composta: solo contro il sovrasterzo.</p>
+        <div class="row"><label>Traiettoria ideale</label><div class="seg" id="linea"></div></div>
+      </section>
+      <section class="cat-p" data-cat="grafica">
+        <h3>Grafica</h3>
+        <div class="row riga-qual"><label>Qualità</label><div class="seg" id="qual"></div></div>
+        <div class="row no-gara"><label title="Come si disegnano Astore, Calabrone e Airone (le auto di Circuit Studio)">Modelli GT</label><div class="seg" id="stileAuto"></div></div>
+        <div class="row solo-pacchetto"><label title="Tribune e pubblico sui circuiti cittadini (il circuito non cambia)">Spalti e pubblico</label><div class="seg" id="pubblico"></div></div>
+        <p class="nota solo-pausa">Le altre scelte della grafica si cambiano dal menu principale.</p>
+      </section>
+      <section class="cat-p" data-cat="audio">
+        <h3>Audio</h3>
+        <div class="row"><label>Audio</label><div class="seg" id="audio"></div></div>
+      </section>
+      <section class="cat-p" data-cat="info">
+        <h3>Info</h3>
+        <button data-act="novita" class="riga-link" id="bnovita2">Novità</button>
+        <button data-act="storico" class="riga-link">Storico delle gare</button>
+        <div id="credits">Monza: tracciato © OpenStreetMap contributors (ODbL) · quote EU-DEM 25 m (Copernicus) via OpenTopoData · Roncadelle (Circuit Studio): DBT Regione Lombardia 2009, quote LiDAR Ministero dell'Ambiente e della Sicurezza Energetica – Piano Straordinario di Telerilevamento Ambientale (CC BY 4.0), © OpenStreetMap contributors (ODbL) · three.js (MIT)</div>
+      </section>
+    </div>
   </div>
 
   <!-- HUD di gara -->
@@ -179,18 +227,34 @@
   <!-- auto distrutta -->
   <div id="distrutta" class="distrutta hidden"><span>DISTRUTTA</span></div>
 
-  <!-- pausa -->
-  <div id="pause" class="screen dim">
-    <div class="panel">
+  <!-- pausa (26-11): azioni a sinistra; a destra classifica e tempi, oppure una parte delle impostazioni -->
+  <div id="pause" class="screen">
+    <nav class="pcol">
       <h2>Pausa</h2>
-      <button data-act="resume" class="go">Riprendi</button>
-      <button data-act="restart">Ricomincia la gara</button>
+      <button data-act="resume" class="go">RIPRENDI</button>
+      <button class="pv sel" data-pv="classifica"><svg viewBox="0 0 24 24"><path d="M4 22V4M4 4h13l-2 4 2 4H4"/></svg>Classifica</button>
+      <button class="pv" data-pv="comandi"><svg viewBox="0 0 24 24"><path d="M6 8h12a4 4 0 0 1 4 4v2a3 3 0 0 1-5.4 1.8L15 14H9l-1.6 1.8A3 3 0 0 1 2 14v-2a4 4 0 0 1 4-4z"/><path d="M7 11v3M5.5 12.5h3"/></svg>Comandi</button>
+      <button class="pv" data-pv="guida"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="2.5"/><path d="M3.5 10.5l6 1M20.5 10.5l-6 1M12 14.5V21"/></svg>Guida</button>
+      <button class="pv" data-pv="grafica"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>Grafica</button>
+      <button class="pv" data-pv="audio"><svg viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg>Audio</button>
+      <span class="spazio"></span>
       <button data-act="fineTT" id="bfinett" class="hidden">Termina la sessione</button>
-      <button data-act="photo">Modalità foto</button>
-      <button data-act="pad">Controller</button>
-      <button data-act="mute" id="bmute">Audio: acceso</button>
-      <button data-act="menu">Menu principale</button>
+      <div class="pdue"><button data-act="restart">Ricomincia</button><button data-act="menu">Esci</button></div>
+    </nav>
+    <div class="pdestra">
+      <div class="pclass" id="pclass"></div>
+      <div class="ptog">
+        <button class="tog" data-act="mute" id="bmute"></button>
+        <button class="tog" data-act="lineaTog" id="blinea"><svg viewBox="0 0 24 24"><path d="M4 20c4-1 4-7 8-8s4-7 8-8" stroke-dasharray="3 3"/></svg>Traiettoria</button>
+        <button class="tog" data-act="visuale"><svg viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>Visuale</button>
+        <button class="tog" data-act="photo"><svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>Foto</button>
+      </div>
     </div>
+  </div>
+
+  <!-- conferma (Ricomincia ed Esci dalla pausa) -->
+  <div id="conferma" class="screen dim">
+    <div class="panel conf"><p id="conftesto"></p><div class="btns"><button data-act="confNo">Annulla</button><button class="go" data-act="confSi" id="confsi">OK</button></div></div>
   </div>
 
   <!-- impostazioni del controller (contenuto costruito da src/ui/pad.js) -->

@@ -90,14 +90,14 @@ export function buildMenu(settings, tracks, cb, mondi) {
     const t = pista(), pac = t.mondo === 'pacchetto';
     document.body.classList.toggle('pacchetto', pac);
     $('mcirc').innerHTML = `${outlineSVG(t.outline)}<div><b>${t.nomeLungo || t.nome}</b><small>${t.sottotitolo}</small><small>${km(t.lunghezza)}</small></div>`;
+    $('tpistaic').innerHTML = outlineSVG(t.outline);
+    $('tpista').textContent = t.nome;
     if (pac) seg('versione', t.versioni.map((v) => [v.k, `${v.k} · ${v.nome}`, v.descrizione]), 'versione');
     atmosfera();
     const st = settings.sterzoPista[t.id] || sterzoPredefinito(t);
     seg('sterzo', [['pronto', 'Pronto', 'Margine 0,16: le ruote girano subito un po\' oltre la tenuta (come Circuit Studio)'], ['dolce', 'Dolce', 'Margine 0,06: sterzo più progressivo (come Cubo Corse)']], null, st, (k) => { settings.sterzoPista[t.id] = k; cb.change('sterzo'); });
   };
-  // auto (21-11): la vetrina al centro, sotto nome, dati e la scelta rapida delle sei auto divise per gioco; frecce ‹ ›
-  const C = $('cars');
-  C.innerHTML = '';
+  // auto (21-11; 26-11 garage): la vetrina al centro con le frecce ‹ ›, sotto nome, dati e livree
   const maxP = Math.max(...CARS.map((c) => c.power / c.mass));
   const barra = (nome, v) => `<div class="stat">${nome}<i><em style="width:${Math.round(Math.min(1, Math.max(0.2, v)) * 100)}%"></em></i></div>`;
   const aggiornaAuto = () => {
@@ -105,22 +105,9 @@ export function buildMenu(settings, tracks, cb, mondi) {
     const pw = (c.power / c.mass) / maxP, gr = (c.mu + c.df * 0.25 - 1.8) / 0.25, top = 1 - (c.cd - 0.43) / 0.12;
     $('mauto').innerHTML = `<b>${c.nome}</b><small>${c.ispirata ? `${c.tipo} · ispirata a ${c.ispirata}` : c.tipo} · ${c.cyl} cilindri</small>`;
     $('mstat').innerHTML = barra('Potenza', pw) + barra('Aderenza', gr) + barra('Velocità', top);
-    C.querySelectorAll('button').forEach((b) => b.classList.toggle('sel', +b.dataset.i === settings.car));
     $('stileAuto')?.closest('.row')?.classList.toggle('spento', c.modello !== 'lowpoly');
   };
   const scegliAuto = (i) => { settings.car = (i + CARS.length) % CARS.length; aggiornaAuto(); cb.change('car'); };
-  for (const [gruppo, modello] of [['Cubo Corse', 'voxel'], ['Circuit Studio', 'lowpoly']]) {
-    const riga = document.createElement('div'); riga.className = 'riga-auto';
-    riga.innerHTML = `<span class="gruppo">${gruppo}</span>`;
-    CARS.forEach((c, i) => {
-      if (c.modello !== modello) return;
-      const b = document.createElement('button'); b.dataset.i = i; b.textContent = c.nome;
-      if (c.ispirata) b.title = `Ispirata a ${c.ispirata} · ${c.motore}`;
-      b.onclick = () => scegliAuto(i);
-      riga.appendChild(b);
-    });
-    C.appendChild(riga);
-  }
   $('autoprec').onclick = () => scegliAuto(settings.car - 1);
   $('autosucc').onclick = () => scegliAuto(settings.car + 1);
   aggiornaAuto();
@@ -190,6 +177,7 @@ export function buildMenu(settings, tracks, cb, mondi) {
   seg('telSens', [[15, 'Pronta', 'Sterzo pieno a 15° di inclinazione'], [22, 'Media', 'Sterzo pieno a 22°'], [32, 'Dolce', 'Sterzo pieno a 32°']], 'telSens');
   const onOff = [[false, 'No'], [true, 'Sì']];
   seg('linea', [[false, 'Nascosta'], [true, 'Visibile']], 'linea');
+  seg('audio', [[false, 'Acceso'], [true, 'Spento']], 'muto');
   // penalità: due interruttori indipendenti nella stessa riga
   document.querySelectorAll('#pen button').forEach((b) => {
     const k = b.dataset.k;
@@ -209,36 +197,35 @@ export function buildMenu(settings, tracks, cb, mondi) {
   const modo = () => document.body.classList.toggle('tt', settings.modo === 'tempo');
   modo();
   $('modo').addEventListener('click', modo);
-  // tendine delle opzioni secondarie: riassunto delle scelte nel titolo, aperte/chiuse ricordate
-  let aperte = {};
-  try { aperte = JSON.parse(localStorage.getItem('cubo-corse-tendine') || '{}'); } catch { /* niente */ }
-  const tendine = [...document.querySelectorAll('#menu details.tendina')];
+  // 26-11 (garage): riassunto delle scelte nelle tessere del menu
   const riassunti = () => {
-    for (const d of tendine) {
-      const r = d.querySelector('.riass');
-      if (!r || r.id) continue; // «Comandi» lo scrive main.js (controller collegato o no)
-      const parti = [];
-      d.querySelectorAll('.row').forEach((row) => {
-        const st = row.querySelector('.stepper b');
-        if (st) parti.push(`${st.textContent} ${row.querySelector('label').textContent.toLowerCase()}`);
-        const sel = [...row.querySelectorAll('.seg button.sel')].map((b) => b.textContent);
-        if (row.querySelector('.seg.multi')) parti.push(sel.length ? 'penalità: ' + sel.join(', ').toLowerCase() : 'senza penalità');
-        else if (sel.length) parti.push(row.querySelector('label').textContent === 'Danni' ? 'danni ' + sel[0].toLowerCase() : sel[0]);
-      });
-      r.textContent = parti.join(' · ');
-    }
+    const t = pista(), M = mondi[t.mondo];
+    $('tpistat').textContent = t.mondo === 'pacchetto' ? `Pista · versione ${settings.versione}` : 'Pista';
+    const diff = { facile: 'Facili', normale: 'Normali', difficile: 'Difficili' }[settings.diff];
+    $('tsess').textContent = settings.modo === 'tempo' ? `Time trial · ghost ${settings.ghost ? 'sì' : 'no'}` : `Gara · ${settings.laps} ${settings.laps === 1 ? 'giro' : 'giri'} · ${diff}`;
+    $('tatm').textContent = `${M.ORE[settings.ora]?.nome || ''} · ${M.METEO[settings.meteo]?.nome || ''}`;
   };
-  for (const d of tendine) {
-    d.open = !!aperte[d.dataset.t];
-    d.addEventListener('toggle', () => {
-      aperte[d.dataset.t] = d.open;
-      try { localStorage.setItem('cubo-corse-tendine', JSON.stringify(aperte)); } catch { /* niente */ }
-    });
-  }
   $('menu').addEventListener('click', () => requestAnimationFrame(riassunti));
+  // pannelli da destra: uno per tessera (pista, sessione, atmosfera, record)
+  document.querySelectorAll('#menu [data-foglio]').forEach((b) => { b.onclick = () => apriFoglio(b.dataset.foglio); });
+  // impostazioni: categorie a sinistra
+  document.querySelectorAll('#impostazioni .cat').forEach((b) => { b.onclick = () => categoria(b.dataset.cat); });
   $('go').onclick = () => cb.go();
   aggiornaPista();
   riassunti();
+}
+
+/** pannello del menu che entra da destra (null = chiude) */
+export function apriFoglio(nome) {
+  document.querySelectorAll('#menu .foglio').forEach((f) => f.classList.toggle('aperto', f.dataset.f === nome));
+  $('menu').classList.toggle('con-foglio', !!nome);
+}
+export const foglioAperto = () => document.querySelector('#menu .foglio.aperto')?.dataset.f || null;
+
+/** parte delle impostazioni in vista (la stessa nel menu e nella pausa) */
+export function categoria(cat) {
+  document.querySelectorAll('#impostazioni .cat').forEach((b) => b.classList.toggle('sel', b.dataset.cat === cat));
+  document.querySelectorAll('#impcorpo .cat-p').forEach((p) => p.classList.toggle('sel', p.dataset.cat === cat));
 }
 
 export function outlineSVG(pts) {

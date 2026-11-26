@@ -310,22 +310,28 @@ export class MondoPacchetto {
   inizioFotogramma() { this.r.info.autoReset = false; this.r.info.reset(); }
 }
 
+/** nome del circuito nel gioco per chiave di percorsi.json (26-11, Gabriele: «il circuito è uno solo: Roncacircuit») */
+const NOMI_CIRCUITI = { roncadelle: 'Roncacircuit' };
+
 /** elenco dei pacchetti importati (cs/pacchetti/percorsi.json) con nome, lunghezza, curve, versioni e contorno */
 export async function elencoPacchetti() {
   let perc = {};
   try { perc = await (await fetch(BASE + 'percorsi.json', { cache: 'no-cache' })).json(); } catch (e) { console.warn('percorsi', e); return []; }
-  const voci = Object.values(perc).filter(Array.isArray).flat();
+  // 26-11 (Roncacircuit): i percorsi dello stesso circuito sono VARIANTI di un circuito solo (chiave di percorsi.json)
+  const voci = Object.entries(perc).filter(([, v]) => Array.isArray(v)).flatMap(([circuito, v]) => v.map((p) => ({ ...p, circuito })));
   const out = [];
   for (const p of voci) {
     try {
       const C = await (await fetch(`${BASE}${p.id}/circuito.json`, { cache: 'no-cache' })).json();
       const P = C.asse.punti, outline = [];
       for (let i = 0; i < P.length; i += 3) outline.push([P[i][0], -P[i][1]]);
-      // nome corto per il menu: «Roncadelle» o «Roncadelle · Nenni» (il nome del pacchetto è «Circuito cittadino di …»)
-      const corto = C.nome.replace(/^Circuito cittadino di /, '').replace(/ · variante /, ' · ');
+      // nome per il menu: «Roncacircuit · Nenni» = circuito · variante (il tracciato senza variante è il «Classico»)
+      const circuitoNome = NOMI_CIRCUITI[p.circuito] || C.nome.replace(/^Circuito cittadino di /, '').replace(/ · .*$/, '');
+      const v0 = (C.variante?.nome || 'Classico').replace(/^Variante /i, ''), variante = v0[0].toUpperCase() + v0.slice(1);
       out.push({
-        id: p.id, mondo: 'pacchetto', nome: corto, nomeLungo: C.nome,
-        sottotitolo: `Cittadino · ${p.id.endsWith('nenni') ? 'variante Nenni' : 'tracciato completo'} · ${C.curve.length} curve · Circuit Studio`,
+        id: p.id, mondo: 'pacchetto', nome: `${circuitoNome} · ${variante}`, nomeLungo: `${circuitoNome} · ${variante}`,
+        circuito: p.circuito, circuitoNome, variante, curve: C.curve.length,
+        sottotitolo: `Cittadino · ${C.curve.length} curve · Circuit Studio`,
         lunghezza: P.length * C.asse.passo_m, outline,
         versioni: Object.entries(C.versioni).map(([k, v]) => ({ k, nome: v.nome, descrizione: v.descrizione })),
       });

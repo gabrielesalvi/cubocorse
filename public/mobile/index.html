@@ -70,13 +70,18 @@
 
     <!-- pannelli che entrano da destra -->
     <div class="velo-f" data-act="chiudiFoglio"></div>
-    <aside class="foglio" data-f="pista">
+    <aside class="foglio largo" data-f="pista">
       <div class="ft"><h3>Pista</h3><button class="ico" data-act="chiudiFoglio" aria-label="Chiudi">✕</button></div>
-      <div class="fc">
-        <div id="mcirc" class="mcirc"></div>
-        <div class="row solo-pacchetto"><label title="A = strade vere com'erano; B = allargata con criterio (barriere, vie di fuga)">Versione</label><div class="seg" id="versione"></div></div>
-        <a id="astudio" class="link-viewer hidden" target="_blank" rel="noopener" title="Il circuito nel visualizzatore di Circuit Studio (solo da Tailscale)">Apri nello Studio</a>
-        <div id="tracks" class="piste"></div>
+      <div class="fc pfc">
+        <div id="circuiti" class="ctabs"></div>
+        <div class="pcorpo">
+          <div class="pmappa"><div id="pmappa" class="pdis"></div><div id="pdida" class="pdida"></div>
+            <a id="astudio" class="link-viewer hidden" target="_blank" rel="noopener" title="Il circuito nel visualizzatore di Circuit Studio (solo da Tailscale)">Apri nello Studio</a></div>
+          <div class="pcolv">
+            <div class="ptesta"><h4>Variante</h4><div class="seg" id="versione" title="A = strade vere com'erano; B = allargata con criterio (barriere, vie di fuga)"></div></div>
+            <div id="varianti" class="pvar"></div>
+          </div>
+        </div>
       </div>
       <div class="fb"><button data-act="chiudiFoglio">Fatto</button><button class="go" data-act="via">VIA!</button></div>
     </aside>

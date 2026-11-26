@@ -465,16 +465,6 @@ button.ico svg { width: 24px; height: 24px; }
 .foglio .fb button { flex: 1; height: 52px; }
 .foglio .fb .go { font-size: 26px; }
 .foglio h4 { margin: 16px 0 2px; font: 700 italic 15px var(--cond); letter-spacing: .12em; text-transform: uppercase; color: var(--acc2); }
-.foglio .piste .gruppo { font: 700 11.5px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--mut); margin: 12px 0 6px; }
-.foglio .pista { display: grid; grid-template-columns: 46px 1fr auto; align-items: center; gap: 12px; width: 100%; min-height: 54px; margin-bottom: 6px; padding: 4px 12px; text-align: left; border-radius: 12px; }
-.foglio .pista svg { width: 46px; height: 38px; }
-.foglio .pista b { font: 800 italic 20px var(--cond); }
-.foglio .pista small { color: var(--mut); font-size: 13px; }
-.foglio .pista.sel { border-color: var(--acc); background: rgba(255,59,47,.12); }
-.foglio .mcirc { display: grid; grid-template-columns: 120px 1fr; gap: 14px; align-items: center; margin: 2px 0 6px; }
-.foglio .mcirc svg { width: 120px; height: 96px; }
-.foglio .mcirc b { display: block; font: 800 italic 28px/1.05 var(--cond); }
-.foglio .mcirc small { display: block; color: var(--mut); font-size: 13px; margin-top: 2px; }
 .foglio .link-viewer { display: inline-block; margin: 8px 0 0; }
 .foglio .mrecord .rec-tab td.d { display: none; }
 /* righe delle scelte (pannelli, impostazioni, pausa) */
@@ -552,9 +542,50 @@ body.in-pausa .no-gara, body.in-pausa:not(.pacchetto) .riga-qual { display: none
   .foglio .ft { padding-top: 8px; }
   .foglio .fb { padding-top: 8px; }
   .foglio .fb button { height: 46px; }
-  .foglio .mcirc { grid-template-columns: 90px 1fr; } .foglio .mcirc svg { width: 90px; height: 72px; } .foglio .mcirc b { font-size: 24px; }
   #pause .ptab td { padding: 3px 8px; }
   #pause .ptog { margin-top: 10px; } .tog { height: 56px; }
   #pause h2 { font-size: 28px; margin-bottom: 2px; }
   #pause .pcol .pv { height: 34px; }
+}
+
+/* 26-11: pannello Pista «B2» (docs/roncacircuit-proposte.html): sempre largo uguale, mappa fissa a sinistra, varianti a
+   destra con la versione A/B in testa; cambiando circuito cambia solo il contenuto delle caselle */
+.foglio.largo { width: min(1060px, 86vw); }
+.foglio .pfc { display: flex; flex-direction: column; gap: 10px; overflow: hidden; min-height: 0; }
+.ctabs { display: flex; gap: 6px; flex: none; overflow-x: auto; scrollbar-width: none; }
+.ctabs::-webkit-scrollbar { display: none; }
+.ctabs .ctab { flex: none; display: flex; align-items: center; gap: 6px; height: 44px; padding: 0 12px 0 6px; border-radius: 10px; }
+.ctabs .ctab svg { width: 34px; height: 26px; }
+.ctabs .ctab b { font: 800 italic 18px var(--cond); white-space: nowrap; }
+.ctabs .ctab.sel { border-color: var(--acc); background: rgba(255,59,47,.14); }
+.pcorpo { flex: 1; min-height: 0; display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; }
+.pmappa { position: relative; min-height: 0; background: #0c0e13; border: 1px solid rgba(255,255,255,.08); border-radius: 14px; padding: 14px 14px 52px; }
+.pmappa .pdis { width: 100%; height: 100%; }
+.pmappa .pdis svg { width: 100%; height: 100%; display: block; }
+.pmappa .pdida { position: absolute; left: 14px; right: 14px; bottom: 12px; display: flex; align-items: baseline; gap: 8px; white-space: nowrap; overflow: hidden; }
+.pmappa .pdida b { font: 800 italic 24px var(--cond); overflow: hidden; text-overflow: ellipsis; }
+.pmappa .pdida small { color: var(--mut); font-size: 13px; }
+.pmappa .link-viewer { position: absolute; top: 10px; right: 10px; margin: 0; font-size: 12.5px; padding: 4px 10px; }
+.pcolv { display: flex; flex-direction: column; min-height: 0; }
+.ptesta { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex: none; margin-bottom: 6px; }
+.foglio .ptesta h4 { margin: 0; }
+.ptesta .seg button { white-space: nowrap; }
+.ptesta .seg button.unica { opacity: .5; cursor: default; }
+.pvar { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+.pvar .vr { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; width: 100%; padding: 8px 12px; margin-bottom: 6px; text-align: left; border-radius: 10px; }
+.pvar .vr b { display: block; font: 800 italic 19px/1.1 var(--cond); }
+.pvar .vr small { display: block; color: var(--mut); font-size: 12.5px; }
+.pvar .vr i { font: 600 normal 15px var(--cond); color: var(--mut); }
+.pvar .vr.sel { border-color: var(--acc); background: rgba(255,59,47,.12); }
+@media (max-height: 520px) {
+  .foglio.largo { width: 100vw; }
+  .foglio .pfc { gap: 8px; }
+  .ctabs .ctab { height: 38px; } .ctabs .ctab b { font-size: 16px; } .ctabs .ctab svg { width: 28px; height: 22px; }
+  .pcorpo { grid-template-columns: 1.15fr 1fr; gap: 10px; }
+  .pmappa { padding: 6px 6px 28px; }
+  .pmappa .pdida { left: 10px; bottom: 5px; } .pmappa .pdida b { font-size: 17px; } .pmappa .pdida small { font-size: 11px; }
+  .ptesta { margin-bottom: 4px; } .foglio .ptesta h4 { font-size: 13px; letter-spacing: .1em; }
+  .foglio .ptesta .seg button { padding: 0 9px; height: 32px; font-size: 12.5px; }
+  .pvar .vr { padding: 5px 10px; margin-bottom: 4px; } .pvar .vr > span { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+  .pvar .vr b { font-size: 17px; white-space: nowrap; } .pvar .vr small { font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 }

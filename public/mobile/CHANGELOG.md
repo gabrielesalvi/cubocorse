@@ -15,6 +15,9 @@ e quella di prima resta consultabile dalla tendina dei record.
   cambiano senza uscire dalla gara; audio, traiettoria, visuale e foto sono a un tocco.
 - Ricomincia ed Esci dalla pausa chiedono conferma.
 - L'audio spento resta spento anche alla partita dopo.
+- Scelta della pista nuova: in alto i circuiti, a sinistra la mappa grande, a destra le varianti con la versione A/B.
+  Il pannello resta uguale qualunque circuito scegli. Roncadelle è un circuito solo, «Roncacircuit», con le sue
+  varianti (per ora Classico e Nenni); i record di prima restano.
 
 ### Guida
 - Controller con «Aiuti allo sterzo: No»: ora l'auto ha la stessa fisica di sempre, solo senza i tre aiuti allo sterzo.

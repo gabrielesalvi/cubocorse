@@ -61,38 +61,47 @@ export function setLoading(p, msg) {
  */
 export function buildMenu(settings, tracks, cb, mondi) {
   const pista = () => tracks.find((t) => t.id === settings.track) || tracks[0];
-  // circuiti (21-11): elenco compatto diviso per gioco; la pianta grande e i dati della pista scelta sotto (#mcirc).
-  // Scegliere una pista non la carica davanti agli occhi: main.js la prepara dietro il menu.
-  const T = $('tracks');
-  T.innerHTML = '';
+  // circuiti (26-11, proposta B2 di docs/roncacircuit-proposte.html): linguette dei circuiti in alto, mappa grande fissa a
+  // sinistra, colonna «Variante» a destra con la versione A/B in testa. Il pannello ha sempre la stessa forma: cambiando
+  // circuito cambia solo il contenuto (niente salti). I percorsi di Circuit Studio con la stessa chiave in percorsi.json
+  // sono varianti di un circuito solo (Roncacircuit). Scegliere una pista non la carica: main.js la prepara dietro il menu.
   const km = (m) => `${(m / 1000).toFixed(2).replace('.', ',')} km`;
-  for (const [gruppo, mondoPiste] of [['Cubo Corse', 'voxel'], ['Circuit Studio', 'pacchetto']]) {
-    const lista = tracks.filter((t) => t.mondo === mondoPiste);
-    if (!lista.length) continue;
-    const g = document.createElement('div'); g.className = 'gruppo'; g.textContent = gruppo; T.appendChild(g);
-    for (const t of lista) {
-      const d = document.createElement('button');
-      d.className = 'pista' + (settings.track === t.id ? ' sel' : '');
-      d.dataset.id = t.id;
-      d.innerHTML = `${outlineSVG(t.outline)}<b>${t.nome}</b><small>${km(t.lunghezza)}</small>`;
-      d.onclick = () => {
-        if (settings.track === t.id) return;
-        settings.track = t.id;
-        T.querySelectorAll('.pista').forEach((c) => c.classList.toggle('sel', c === d));
-        aggiornaPista();
-        cb.change('track');
-      };
-      T.appendChild(d);
-    }
+  const circuiti = [];
+  for (const t of tracks) {
+    const k = t.mondo === 'voxel' ? t.id : `cs:${t.circuito}`;
+    let c = circuiti.find((x) => x.id === k);
+    if (!c) circuiti.push(c = { id: k, nome: t.mondo === 'voxel' ? t.nome.replace(/^Autodromo (delle|di) /, '') : t.circuitoNome, piste: [] });
+    c.piste.push(t);
   }
-  // scheda della pista scelta; versione e pubblico per i circuiti di Circuit Studio; sterzo da tastiera per pista
+  const circuitoDi = (t) => circuiti.find((c) => c.piste.includes(t));
+  if (!settings.varianteCirc) settings.varianteCirc = {};
+  const scegli = (id) => {
+    if (settings.track === id) return;
+    settings.track = id;
+    aggiornaPista();
+    cb.change('track');
+  };
   const aggiornaPista = () => {
-    const t = pista(), pac = t.mondo === 'pacchetto';
+    const t = pista(), pac = t.mondo === 'pacchetto', c = circuitoDi(t);
+    settings.varianteCirc[c.id] = t.id;
     document.body.classList.toggle('pacchetto', pac);
-    $('mcirc').innerHTML = `${outlineSVG(t.outline)}<div><b>${t.nomeLungo || t.nome}</b><small>${t.sottotitolo}</small><small>${km(t.lunghezza)}</small></div>`;
+    $('circuiti').innerHTML = circuiti.map((x) => {
+      const sel = x.piste.find((p) => p.id === settings.varianteCirc[x.id]) || x.piste[0];
+      return `<button class="ctab${x === c ? ' sel' : ''}" data-c="${x.id}">${outlineSVG(sel.outline)}<b>${x.nome}</b></button>`;
+    }).join('');
+    $('circuiti').querySelectorAll('.ctab').forEach((b) => b.onclick = () => {
+      const x = circuiti.find((y) => y.id === b.dataset.c);
+      scegli((x.piste.find((p) => p.id === settings.varianteCirc[x.id]) || x.piste[0]).id);
+    });
+    $('pmappa').innerHTML = reteSVG(c.piste, t.id);
+    $('pdida').innerHTML = `<b>${t.nome}</b><small>${km(t.lunghezza)} · ${pac ? `${t.curve} curve` : t.sottotitolo.replace(/\s*·\s*[\d.,]+ km/g, '')}</small>`;
+    const unica = c.piste.length === 1;
+    $('varianti').innerHTML = c.piste.map((p) => `<button class="vr${p === t ? ' sel' : ''}" data-id="${p.id}"><span><b>${unica ? 'Tracciato unico' : p.variante}</b><small>${unica ? `${c.nome} non ha varianti` : `${p.curve} curve`}</small></span><i>${km(p.lunghezza)}</i></button>`).join('');
+    $('varianti').querySelectorAll('.vr').forEach((b) => b.onclick = () => scegli(b.dataset.id));
+    if (pac) seg('versione', t.versioni.map((v) => [v.k, `${v.k} · ${v.nome}`, v.descrizione]), 'versione');
+    else $('versione').innerHTML = '<button disabled class="unica">Versione unica</button>';
     $('tpistaic').innerHTML = outlineSVG(t.outline);
     $('tpista').textContent = t.nome;
-    if (pac) seg('versione', t.versioni.map((v) => [v.k, `${v.k} · ${v.nome}`, v.descrizione]), 'versione');
     atmosfera();
     const st = settings.sterzoPista[t.id] || sterzoPredefinito(t);
     seg('sterzo', [['pronto', 'Pronto', 'Margine 0,16: le ruote girano subito un po\' oltre la tenuta (come Circuit Studio)'], ['dolce', 'Dolce', 'Margine 0,06: sterzo più progressivo (come Cubo Corse)']], null, st, (k) => { settings.sterzoPista[t.id] = k; cb.change('sterzo'); });
@@ -226,6 +235,20 @@ export const foglioAperto = () => document.querySelector('#menu .foglio.aperto')
 export function categoria(cat) {
   document.querySelectorAll('#impostazioni .cat').forEach((b) => b.classList.toggle('sel', b.dataset.cat === cat));
   document.querySelectorAll('#impcorpo .cat-p').forEach((p) => p.classList.toggle('sel', p.dataset.cat === cat));
+}
+
+/** mappa grande del pannello Pista: tutte le varianti del circuito in grigio (stesso riquadro), quella scelta in rosso */
+export function reteSVG(piste, selId) {
+  let minx = Infinity, minz = Infinity, maxx = -Infinity, maxz = -Infinity;
+  for (const p of piste) for (const [x, z] of p.outline) { minx = Math.min(minx, x); maxx = Math.max(maxx, x); minz = Math.min(minz, z); maxz = Math.max(maxz, z); }
+  const w = maxx - minx, h = maxz - minz, s = Math.max(w, h) / 100;
+  const path = (pts) => pts.map(([x, z], i) => `${i ? 'L' : 'M'}${((x - minx) / s).toFixed(1)},${((z - minz) / s).toFixed(1)}`).join('') + 'Z';
+  const sel = piste.find((p) => p.id === selId) || piste[0], d = path(sel.outline), [x0, z0] = sel.outline[0];
+  const grigi = piste.map((p) => `<path d="${path(p.outline)}" fill="none" stroke="#3b414d" stroke-width="${piste.length > 1 ? 1.5 : 3.6}" stroke-linejoin="round"/>`).join('');
+  return `<svg viewBox="-4 -4 ${(w / s + 8).toFixed(1)} ${(h / s + 8).toFixed(1)}" preserveAspectRatio="xMidYMid meet">${grigi}`
+    + `<path d="${d}" fill="none" stroke="#ff3b2f" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" class="psel"/>`
+    + `<path d="${d}" fill="none" stroke="#fff" stroke-opacity=".55" stroke-width=".5" stroke-linejoin="round"/>`
+    + `<circle cx="${((x0 - minx) / s).toFixed(1)}" cy="${((z0 - minz) / s).toFixed(1)}" r="2.1" fill="#fff"/><circle cx="${((x0 - minx) / s).toFixed(1)}" cy="${((z0 - minz) / s).toFixed(1)}" r="1.1" fill="#111"/></svg>`;
 }
 
 export function outlineSVG(pts) {

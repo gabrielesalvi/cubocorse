@@ -163,6 +163,7 @@ class App {
     this.acc = 0;
     try { this.vetrina = new Vetrina($id('vetrina')); } catch (e) { console.warn('vetrina', e); }
     UI.buildMenu(s, this.piste, { change: (k) => this.onSetting(k), go: () => this.go() }, { voxel: INFO_VOXEL, pacchetto: INFO_PACCHETTO });
+    $id('menu').addEventListener('pista-scelta', () => this.prepara());
     this.bindKeys();
     this.bindPanels();
     this.bindFoto();
@@ -404,7 +405,11 @@ class App {
     const s = this.settings, W = this.mondo;
     UI.saveSettings(s);
     const stessoMondo = W && (W.tipo === 'voxel') === (this.pista().mondo === 'voxel');
-    if (k === 'track' || k === 'versione') { this.prepara(); this.linkStudio(); }
+    if (k === 'track' || k === 'versione') {
+      this.linkStudio();
+      if (UI.foglioAperto() !== 'pista') this.prepara();
+      else if (this._prep) { this._prep.annullato = true; this._prep = null; this.statoCarico(); }   // si costruisce alla chiusura del pannello
+    }
     else if (k === 'qual') {
       if (this.pista().mondo === 'voxel') this.prepara();            // nel mondo voxel la qualità cambia la costruzione
       else if (W && W.tipo === 'pacchetto') W.impostaQualita(s.qual === 'auto' ? W.qualitaAuto() : s.qual);

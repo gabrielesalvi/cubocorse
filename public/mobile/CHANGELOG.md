@@ -16,6 +16,7 @@ e quella di prima resta consultabile dalla tendina dei record.
 - Ricomincia ed Esci dalla pausa chiedono conferma.
 - L'audio spento resta spento anche alla partita dopo.
 - Scelta della pista nuova: in alto i circuiti, a sinistra la mappa grande, a destra le varianti con la versione A/B.
+- Nel pannello Pista si passa da un circuito all'altro senza scatti: la pista si prepara quando chiudi il pannello (o premi VIA), non a ogni tocco.
   Il pannello resta uguale qualunque circuito scegli. Roncadelle è un circuito solo, «Roncacircuit», con le sue
   varianti (per ora Classico e Nenni); i record di prima restano.
 

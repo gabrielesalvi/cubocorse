@@ -226,8 +226,11 @@ export function buildMenu(settings, tracks, cb, mondi) {
 
 /** pannello del menu che entra da destra (null = chiude) */
 export function apriFoglio(nome) {
+  const prima = foglioAperto();
   document.querySelectorAll('#menu .foglio').forEach((f) => f.classList.toggle('aperto', f.dataset.f === nome));
   $('menu').classList.toggle('con-foglio', !!nome);
+  // 27-11: la pista si costruisce quando si chiude il pannello Pista, non a ogni tocco (sul telefono laggava)
+  if (prima === 'pista' && nome !== 'pista') $('menu').dispatchEvent(new Event('pista-scelta'));
 }
 export const foglioAperto = () => document.querySelector('#menu .foglio.aperto')?.dataset.f || null;
 

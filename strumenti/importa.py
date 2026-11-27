@@ -78,6 +78,15 @@ import re
 ver = re.search(r"VERSIONE = '([^']+)'", (DEST / 'src' / 'versione.js').read_text(encoding='utf-8'))
 (DEST / 'VERSIONE.txt').write_text(f'cubo-corse {ver.group(1) if ver else "?"} ({commit}){" · copia di prova " + sotto if sotto else ""}\n')
 
+# 27-11: il service worker porta anche il commit → ogni pubblicazione (anche su /mobile, dove la versione resta uguale)
+# è un service worker nuovo: il telefono lo installa, butta le copie vecchie e l'app si aggiorna
+T = DEST / 'src' / 'ui' / 'tocco.js'
+REG = "sw.js?v=${encodeURIComponent(versione)}"
+t = T.read_text(encoding='utf-8')
+if REG not in t: raise SystemExit('registrazione del service worker cambiata in src/ui/tocco.js: aggiorna REG in questo script')
+T.write_text(t.replace(REG, "sw.js?v=${encodeURIComponent(versione + '-%s')}" % commit), encoding='utf-8')
+(DEST / 'manifest.webmanifest').write_text((DEST / 'manifest.webmanifest').read_text(encoding='utf-8').replace('"lang": "it",', f'"lang": "it",\n  "version": "{ver.group(1) if ver else "?"}-{commit}",', 1), encoding='utf-8')
+
 n = sum(1 for p in DEST.rglob('*') if p.is_file())
 mb = sum(p.stat().st_size for p in DEST.rglob('*') if p.is_file()) / 1e6
 print(f'ok → {DEST}  ·  cubo-corse {commit}  ·  {n} file, {mb:.1f} MB')

@@ -40,7 +40,7 @@ self.addEventListener('fetch', (e) => {
       return r;
     }
     try {
-      const r = await fetch(req);
+      const r = await fetch(req, { cache: 'no-cache' });     // 27-11: chiede sempre al sito se il file è cambiato (niente copie vecchie di 10 min)
       if (r.ok) cache.put(req, r.clone()).catch(() => {});
       return r;
     } catch (err) {

@@ -18,7 +18,7 @@ export const QUALITA = {
   telefono: { nome: 'Telefono', diretto: true, pixelRatio: 1, shadows: 0, shadowRange: 55, gtao: false, smaa: false, bloom: false, terrainRange: 220, cell: 4, trees: 0.25, crowd: 0.25, crowdDist: 350, vineDist: 150, lampLights: 0, rainDrops: 2500, far: 1500, palazziLontani: 100 },
   medio: { nome: 'Medio', pixelRatio: 1, shadows: 2048, shadowRange: 65, gtao: false, smaa: true, bloom: true, terrainRange: 300, cell: 3, trees: 0.65, crowd: 0.65, crowdDist: 500, vineDist: 200, lampLights: 4, rainDrops: 4500, far: 2600 },
   alto: { nome: 'Alto', pixelRatio: 1, shadows: 4096, shadowRange: 80, gtao: false, smaa: true, bloom: true, terrainRange: 380, cell: 3, trees: 1, crowd: 1, crowdDist: 700, vineDist: 260, lampLights: 6, rainDrops: 6000, far: 3600 },
-  ultra: { nome: 'Ultra', pixelRatio: 2, shadows: 4096, shadowRange: 95, gtao: true, smaa: true, bloom: true, terrainRange: 420, cell: 3, trees: 1.3, crowd: 1.2, crowdDist: 950, vineDist: 400, lampLights: 8, rainDrops: 8000, far: 4500 },
+  ultra: { nome: 'Ultra', pixelRatio: 2, shadows: 4096, shadowRange: 95, gtao: true, smaa: true, bloom: true, terrainRange: 420, cell: 3, trees: 1, crowd: 1, crowdDist: 950, vineDist: 400, lampLights: 8, rainDrops: 8000, far: 4500 },
 };
 
 const FILTRI = {

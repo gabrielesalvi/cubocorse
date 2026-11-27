@@ -334,7 +334,7 @@ const CHIAVE_AVVISO_HOME = 'cubo-corse-avviso-home';
  * con «apri in Safari»)
  */
 export function preparaApp(versione) {
-  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(versione + '-7260c06')}`).catch((e) => console.warn('service worker', e));
+  if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register(`sw.js?v=${encodeURIComponent(versione + '-c549715')}`).catch((e) => console.warn('service worker', e));
   document.body.classList.toggle('come-app', COME_APP);
   const header = document.querySelector('#menu header');
   if (!header || COME_APP) return;

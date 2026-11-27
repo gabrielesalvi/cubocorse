@@ -81,7 +81,8 @@ export class Renderer {
     this.qKey = QUALITA[k] ? k : 'alto';
     this.q = QUALITA[this.qKey];
     const pr = Math.min(window.devicePixelRatio || 1, this.q.pixelRatio);
-    this.r.setPixelRatio(this.qKey === 'ultra' ? Math.min(window.devicePixelRatio || 1, 2) : pr);
+    const tetto = document.body.classList.contains('tocco') ? 1.5 : 2;        // 27-11: telefoni e tablet al massimo 1,5×
+    this.r.setPixelRatio(Math.min(tetto, this.qKey === 'ultra' ? Math.min(window.devicePixelRatio || 1, 2) : pr));
     this.basePR = this.r.getPixelRatio(); // risoluzione piena della qualità scelta (la dinamica non la supera)
   }
   /** cambia la risoluzione interna (risoluzione dinamica) */

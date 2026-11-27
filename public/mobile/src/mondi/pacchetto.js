@@ -97,7 +97,8 @@ export class MondoPacchetto {
   }
 
   qualitaAuto() { if (document.body.classList.contains('tocco')) return 'telefono'; const k = gpuTipo(this.gpu); return k === 'software' ? 'basso' : k === 'integrata' ? 'medio' : 'alto'; }
-  basePR() { return Math.min(devicePixelRatio, 2, (QUALITA[this.qk] || QUALITA.alto).pr); }
+  // 27-11: su telefoni e tablet al massimo 1,5× (Alta sul S24 a 2× = 1664×768, limite della scheda video: 48 fps)
+  basePR() { return Math.min(devicePixelRatio, document.body.classList.contains('tocco') ? 1.5 : 2, (QUALITA[this.qk] || QUALITA.alto).pr); }
   serveRicarica() { return false; }
   qualitaAttuale() { return this.qk; }
   impostaQualita(qk) { this.qk = QUALITA[qk] ? qk : 'alto'; this.leggero = this.qk === 'basso' || this.qk === 'telefono'; this.applicaGrafica(); }

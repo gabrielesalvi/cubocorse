@@ -263,7 +263,10 @@ function* passiPista(dati, v = 'B', { profiloIA } = {}) {
   const def = {
     id: `${circuito.id}-${v}`, nome: `${circuito.nome} · ${v}`, stile: 'citta', samples, esatto: true, lati: { L, R },
     solidi,   // SOLIDI=0: vecchia fisica (solo per i confronti nei test)
-    startS: 0, curve: (circuito.curve || []).map((c) => ({ name: `${c.numero} ${c.nome}`, s: mappaS((c.da + c.a) / 2) })),
+    startS: 0,
+    // 27-11: confini dei settori dal circuito di Circuit Studio (inizio del 2° e del 3° settore), in metri dalla partenza
+    settori: (circuito.settori || []).slice(1).map((st) => mappaS(st.da)).filter((x) => x > 0),
+    curve: (circuito.curve || []).map((c) => ({ name: `${c.numero} ${c.nome}`, s: mappaS((c.da + c.a) / 2) })),
     profiloIA: profiloIA || circuito.versioni?.[v]?.profilo_ia || PROFILO_VERSIONE[v] || 'cittadino',
   };
   yield;

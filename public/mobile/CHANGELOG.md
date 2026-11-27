@@ -14,6 +14,7 @@ e quella di prima resta consultabile dalla tendina dei record.
 - Pausa nuova: a sinistra Riprendi e le azioni, a destra la classifica con i tempi. Comandi, guida, grafica e audio si
   cambiano senza uscire dalla gara; audio, traiettoria, visuale e foto sono a un tocco.
 - Ricomincia ed Esci dalla pausa chiedono conferma.
+- Se premi VIA mentre la pista si sta ancora preparando, il pulsante dice «SI PARTE» con la percentuale e la gara parte da sola appena è pronta.
 - L'audio spento resta spento anche alla partita dopo.
 - Scelta della pista nuova: in alto i circuiti, a sinistra la mappa grande, a destra le varianti con la versione A/B.
 - Nel pannello Pista si passa da un circuito all'altro senza scatti: la pista si prepara quando chiudi il pannello (o premi VIA), non a ogni tocco.
@@ -23,6 +24,16 @@ e quella di prima resta consultabile dalla tendina dei record.
 - Roncacircuit più leggero a Telefono e Bassa: alberi più semplici, palazzi con i dettagli solo vicino alla pista, terreno e strade a maglia più larga, vista fino a 1,6 km nella nebbia. Circa il 40% di triangoli e il 20% di chiamate di disegno in meno; sul PC nelle altre qualità non cambia niente. Su telefoni e tablet Roncacircuit è sempre in versione leggera, qualunque qualità scegli. Su telefoni e tablet le qualità Alta e Ultra disegnano al massimo a 1,5 volte la risoluzione dello schermo (prima 2): più fluide, ancora molto più nitide di Telefono.
   Il pannello resta uguale qualunque circuito scegli. Roncadelle è un circuito solo, «Roncacircuit», con le sue
   varianti (per ora Classico e Nenni); i record di prima restano.
+
+### Tempi
+- Tempi dei settori, in gara e nel time trial. Ogni pista è divisa in tre settori: sui circuiti di Roncadelle sono quelli
+  veri del circuito, sulle piste a cubetti tre parti uguali. Sotto i tempi del giro ci sono tre riquadri S1, S2 e S3; a ogni
+  settore il tempo compare anche al centro, col distacco.
+- I colori sono quelli della Formula 1. Viola: il migliore della gara fra tutte le auto, oppure nel time trial il tuo
+  migliore di sempre su quella pista. Verde: il tuo migliore della sessione. Giallo: più lento. Barrato: giro già non valido,
+  non conta.
+- Nei risultati ogni giro ha i suoi tre settori, con il migliore di ogni settore in viola e il giro ideale (la somma dei
+  settori migliori). In gara la tabella «I tuoi giri» sta sotto la classifica.
 
 ### Guida
 - Controller con «Aiuti allo sterzo: No»: ora l'auto ha la stessa fisica di sempre, solo senza i tre aiuti allo sterzo.
@@ -67,6 +78,7 @@ e quella di prima resta consultabile dalla tendina dei record.
 ### Record
 - I nomi con parolacce o offese non si possono usare: il gioco chiede di sceglierne un altro.
 - Mentre scrivi il nome, sotto la casella compare un avviso se il nome non si può usare.
+- I nomi sono sempre in minuscolo, comunque li scrivi: Rossi, ROSSI e rossi sono lo stesso nome.
 
 ## 1.0.0 — 21 novembre 2026
 

@@ -322,7 +322,8 @@ class App {
     const carica = p !== undefined;
     b.classList.toggle('carica', carica);
     b.querySelector('.go-barra').style.width = carica ? `${Math.round(Math.min(1, p) * 100)}%` : '0';
-    b.querySelector('.go-testo').textContent = carica ? (this._viaInAttesa ? 'PARTO APPENA È PRONTA…' : 'VIA!') : 'VIA!';
+    // 27-11 (Gabriele): «PARTO APPENA È PRONTA…» non ci stava nel tastone → testo corto con la percentuale
+    b.querySelector('.go-testo').textContent = carica && this._viaInAttesa ? `SI PARTE · ${Math.round(Math.min(1, p) * 100)}%` : 'VIA!';
     if (st) st.textContent = carica ? msg || '' : '';
   }
 
@@ -361,7 +362,10 @@ class App {
       penLimiti: !!s.penLimiti, penContatti: !!s.penContatti, timeTrial: s.modo === 'tempo', nAuto: s.nAuto, danniReali: s.danni === 'meccanici',
       griglia: this.griglia,
       autoIA: this.autoIA(W),
+      // 27-11: nel time trial il viola dei settori = il tuo migliore di sempre su questa pista e versione
+      settoriRecord: s.modo === 'tempo' ? REC.settoriRecord(this.pistaRecord()) : null,
     });
+    this.hud.preparaSettori(this.race.confini.length + 1);
     // time trial: fantasma del giro migliore per questa pista (uno solo, qualunque sia il comando: 21-11)
     if (this.ghost) { this.ghost.dispose(); this.ghost = null; }
     if (this.race.timeTrial) {
@@ -813,7 +817,12 @@ class App {
     $id('rtitle').textContent = `Time trial · ${this.nomiPiste?.[pista] || pista}`;
     const giri = p.lapTimes;
     const validi = race._validi || [];
-    $id('rtable').innerHTML = `<tr><th>Giro</th><th>Tempo</th><th></th></tr>` + (giri.length ? giri.map((t, i) => `<tr class="${t === best ? 'me' : ''}"><td class="p">${i + 1}</td><td>${UI.fmt(t)}</td><td>${validi[i] === false ? '<span class="pen">non valido</span>' : t === best ? 'migliore' : ''}</td></tr>`).join('') : '<tr><td colspan="3">Nessun giro completato.</td></tr>');
+    // 27-11: colonne dei settori; viola = migliore della sessione in quel settore, riga «Ideale» = somma dei migliori
+    const nS = race.confini.length + 1, gs = p.giriSett || [], mig = REC.miglioriSettori(gs, nS);
+    const intS = Array.from({ length: nS }, (_, i) => `<th>S${i + 1}</th>`).join('');
+    const ideale = mig.every(Number.isFinite) ? `<tr class="ideale"><td></td><td>Ideale ${UI.fmt(mig.reduce((a, b) => a + b, 0))}</td>${mig.map((t) => `<td class="sett">${REC.fmtSett(t)}</td>`).join('')}<td></td></tr>` : '';
+    $id('rtable').innerHTML = `<tr><th>Giro</th><th>Tempo</th>${intS}<th></th></tr>` + (giri.length ? giri.map((t, i) => `<tr class="${t === best ? 'me' : ''}"><td class="p">${i + 1}</td><td>${UI.fmt(t)}</td>${REC.celleSettori(gs[i], nS, mig)}<td>${validi[i] === false ? '<span class="pen">non valido</span>' : t === best ? 'migliore' : ''}</td></tr>`).join('') + (giri.length > 1 ? ideale : '') : `<tr><td colspan="${nS + 3}">Nessun giro completato.</td></tr>`);
+    $id('rsett').innerHTML = '';
     if (giri.length) REC.aggiungiStorico({ data: new Date().toISOString(), tipo: 'tempo', pista, vPista, gioco: VERSIONE, fisica, comando, guida: MODELLO.k, giri: giri.length, diff: '—', pos: '—', tempo: best, pen: 0, best: p.best, bestValido: Number.isFinite(best), auto: p.spec.nome, meteo: s.meteo, ora: s.ora });
     UI.showScreen('results', true);
     const k = REC.posizione(pk, cat, best);
@@ -1040,6 +1049,10 @@ class App {
         W.semaforo(-1);
         setTimeout(() => { this.hud.lights(0); W.semaforo(0); }, 1500);
         this.hud.message('VIA!', 1200);
+      } else if (e.t === 'settore' && e.car === this.player) {
+        this.hud.settore(e);
+        // time trial: un settore migliore di sempre si salva subito (anche se poi il giro non si chiude)
+        if (race.timeTrial && e.colore === 'viola') REC.salvaSettoriRecord(this.pistaRecord(), race.bestSett);
       } else if (e.t === 'giro' && e.car === this.player) {
         // tipo di comando del giro: il più aiutato fra quelli usati (REC.PIU_AIUTATO: telefono, tastiera, controller)
         const com = REC.comandoDelGiro(this._comGiro);

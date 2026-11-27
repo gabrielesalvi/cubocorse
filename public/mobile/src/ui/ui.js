@@ -10,6 +10,8 @@ export const fmt = (t) => {
   const m = Math.floor(t / 60), s = t - m * 60;
   return `${m}:${s.toFixed(3).padStart(6, '0')}`;
 };
+/** tempo di un settore: secondi con tre decimali (oltre il minuto come fmt) */
+export const fmtSett = (t) => (!isFinite(t) || t <= 0 ? '—' : t >= 60 ? fmt(t) : t.toFixed(3));
 const hex = (c) => '#' + c.toString(16).padStart(6, '0');
 
 export const DEFAULTS = { track: 'monza', car: 0, livery: 0, laps: 3, diff: 'normale', grid: 'ultimo', ora: 'oro', meteo: 'sereno', qual: 'auto', fisica: 'arcade', linea: false, penLimiti: false, penContatti: false, modo: 'gara', ghost: true, nAuto: 10, pedali: 'manuali', danni: 'estetici', telSterzo: 'tasti', telPedali: 'tasti', telLeva: 'media', telGas: false, telFreno: false, telSens: 22,
@@ -287,6 +289,27 @@ export class HUD {
     this.mmT = (x, z) => [ox + (x - minx) * s, oz + (z - minz) * s];
     this.mmPts = pts.map(([x, z]) => this.mmT(x, z));
   }
+  /** 27-11: riquadri dei settori (uno per settore) sotto i tempi; si rifanno a ogni gara */
+  preparaSettori(n) {
+    const el = $('hsett');
+    el.innerHTML = Array.from({ length: n }, (_, i) => `<span><small>S${i + 1}</small><b>—</b></span>`).join('');
+    this._settEl = [...el.children];
+    this._popT = 0;
+    $('hsettpop').className = '';
+  }
+  /** fine di un settore del giocatore: riquadro colorato e, al centro, tempo e distacco per 2,5 s */
+  settore(e) {
+    const L = this._settEl || [];
+    if (e.n === 0) L.forEach((c, i) => i && c.classList.add('vecchio'));
+    const c = L[e.n];
+    const testo = fmtSett(e.tempo);
+    if (c) { c.className = e.colore; c.querySelector('b').textContent = testo; }
+    const pop = $('hsettpop');
+    const d = e.delta == null || !e.valido ? '' : ` <i>${e.delta < 0 ? '−' : '+'}${Math.abs(e.delta).toFixed(3)}</i>`;
+    pop.innerHTML = `<small>S${e.n + 1}</small> ${testo}${d}`;
+    pop.className = `on ${e.colore}`;
+    this._popT = 2.5;
+  }
   message(text, ms = 1800) {
     this.el.msg.textContent = text;
     this.el.msg.classList.add('on');
@@ -308,6 +331,7 @@ export class HUD {
     const e = this.el;
     if (this.msgT > 0) { this.msgT -= dt; if (this.msgT <= 0) e.msg.classList.remove('on'); }
     if (this.camT > 0) { this.camT -= dt; if (this.camT <= 0) e.cam.classList.remove('on'); }
+    if (this._popT > 0) { this._popT -= dt; if (this._popT <= 0) $('hsettpop').classList.remove('on'); }
     if (!player) return;
     const st = race.standings();
     e.pos.textContent = st.indexOf(player) + 1;
@@ -432,4 +456,11 @@ export function showResults(race) {
   $('rtable').innerHTML = `<tr><th>Pos</th><th>N.</th><th>Pilota</th><th>Auto</th><th>Tempo</th><th>Giro migliore</th></tr>` +
     res.map((r, i) => `<tr class="${r.car === race.player ? 'me' : ''}"><td class="p">${r.rit ? '—' : i + 1}</td><td>${r.car.num}</td><td>${r.car.nome}</td><td>${r.car.spec.nome}</td>
       <td>${r.rit ? `<span class="pen">RIT · ${r.giri} giri</span>` : i === 0 ? fmt(r.tempo) : '+' + (r.tempo - lead >= 60 ? fmt(r.tempo - lead) : (r.tempo - lead).toFixed(3))}${r.stimato ? '*' : ''}${r.pen ? ` <span class="pen" title="penalità incluse nel tempo">(+${r.pen} s)</span>` : ''}</td><td style="${r.best === best ? 'color:#c77dff;font-weight:800' : ''}">${fmt(r.best)}</td></tr>`).join('');
+  // 27-11: i tuoi giri con i settori; viola = migliore della gara fra tutte le auto in quel settore
+  const p = race.player, nS = (race.confini?.length || 0) + 1;
+  $('rsett').innerHTML = p && p.giriSett?.length ? `<h4>I tuoi giri · settori</h4><table class="tsett"><tr><th>Giro</th><th>Tempo</th>${Array.from({ length: nS }, (_, i) => `<th>S${i + 1}</th>`).join('')}</tr>` +
+    p.giriSett.map((g, i) => `<tr><td class="p">${i + 1}</td><td>${fmt(p.lapTimes[i])}</td>${Array.from({ length: nS }, (_, k) => {
+      const x = g[k]; const c = !x ? '' : x.colore === 'grigio' ? 'grigio' : x.t <= race.bestSett[k] + 1e-9 ? 'viola' : x.t <= p.bestSett[k] + 1e-9 ? 'verde' : '';
+      return `<td class="sett ${c}">${x ? fmtSett(x.t) : '—'}</td>`;
+    }).join('')}</tr>`).join('') + `<tr class="ideale"><td></td><td>Ideale ${fmt(p.bestSett.reduce((a, b) => a + b, 0))}</td>${p.bestSett.map((t, k) => `<td class="sett ${t <= race.bestSett[k] + 1e-9 ? 'viola' : ''}">${fmtSett(t)}</td>`).join('')}</tr></table>` : '';
 }

@@ -122,7 +122,7 @@ export function storico() {
 /** ultimo nome usato (vuoto se era ancora quello di prova «AAA» delle iniziali) */
 export function ultimoNome() {
   const n = load().ultimoNome || '';
-  return n === 'AAA' ? '' : n;
+  return n === 'AAA' ? '' : pulisciNome(n);
 }
 
 const fmt = (t) => {
@@ -138,7 +138,7 @@ export function htmlBoard(b, evidenzia = -1, righe = MAX_BOARD) {
   if (!b.length) return '<p class="rec-vuoto">Ancora nessun record. Il primo giro pulito è tuo.</p>';
   const ord = ['1°', '2°', '3°', '4°', '5°', '6°', '7°', '8°', '9°', '10°'];
   return `<table class="rec-tab">${b.slice(0, righe).map((r, i) => `<tr class="${i === evidenzia ? 'nuovo' : ''}${i === 0 ? ' primo' : ''}">
-    <td class="r">${ord[i]}</td><td class="n">${esc(r.nome)}</td><td class="t">${fmt(r.tempo)}</td><td class="c">${iconaComando(r.comando)}</td>
+    <td class="r">${ord[i]}</td><td class="n">${esc(String(r.nome || '').toLocaleLowerCase('it'))}</td><td class="t">${fmt(r.tempo)}</td><td class="c">${iconaComando(r.comando)}</td>
     <td class="a">${esc(r.auto || '')}</td><td class="m" title="${esc(r.meteo || '')}">${METEO_ICONA[r.meteo] || ''}</td><td class="d" title="${esc(r.gioco ? `Cubo Corse ${r.gioco}` : 'prima della 1.0')}">${esc((r.data || '').slice(0, 10))}</td></tr>`).join('')}</table>`;
 }
 
@@ -150,8 +150,8 @@ export function htmlStorico(lista, nomiPiste) {
     <td>${fmt(g.best)}${g.bestValido === false ? ' <span class="pen" title="nessun giro pulito">*</span>' : ''}</td><td>${esc(g.auto)}</td></tr>`).join('')}</table>`;
 }
 
-/** solo lettere (anche accentate), al massimo 8 */
-export const pulisciNome = (t) => String(t || '').replace(/[^\p{L}]/gu, '').slice(0, MAX_NOME);
+/** solo lettere (anche accentate), al massimo 8, sempre minuscole (27-11, Gabriele: Rossi = rossi = ROSSI, si scrive rossi) */
+export const pulisciNome = (t) => String(t || '').replace(/[^\p{L}]/gu, '').toLocaleLowerCase('it').slice(0, MAX_NOME);
 
 /**
  * 21-11 sera (Gabriele): il nome del record, sole lettere (niente numeri), al massimo 8, in una casella di testo; Invio o
@@ -166,8 +166,8 @@ export function chiediNome(el, titolo, nome = '') {
   caricaLista();
   return new Promise((resolve) => {
     el.innerHTML = `<div class="arcade"><div class="arc-tit">${titolo}</div>
-      <label class="nome-rec"><span>Il tuo nome</span><input type="text" maxlength="${MAX_NOME}" autocomplete="nickname" spellcheck="false" value="${esc(pulisciNome(nome))}" placeholder="Pilota"></label>
-      <div class="arc-aiuto">solo lettere, al massimo ${MAX_NOME} · <b>Invio</b> per confermare</div>
+      <label class="nome-rec"><span>Il tuo nome</span><input type="text" maxlength="${MAX_NOME}" autocomplete="nickname" autocapitalize="none" autocorrect="off" spellcheck="false" value="${esc(pulisciNome(nome))}" placeholder="pilota"></label>
+      <div class="arc-aiuto">solo lettere minuscole, al massimo ${MAX_NOME} · <b>Invio</b> per confermare</div>
       <div class="arc-avviso" role="status" hidden></div>
       <button class="go arc-ok">OK</button></div>`;
     const inp = el.querySelector('input'), ok = el.querySelector('.arc-ok'), avviso = el.querySelector('.arc-avviso');
@@ -181,7 +181,7 @@ export function chiediNome(el, titolo, nome = '') {
       const { vietato, usato } = await verificaNome(n);
       if (g !== giro || fatto) return;
       if (vietato) mostra(MSG_VIETATO, 'no');
-      else if (usato) mostra(`C'è già un ${n.toUpperCase()} in classifica: se vuoi, scegline un altro.`, 'attenzione');
+      else if (usato) mostra(`C'è già un «${n}» in classifica: se vuoi, scegline un altro.`, 'attenzione');
       else mostra('', '');
     };
     let attesa = 0;
@@ -190,7 +190,7 @@ export function chiediNome(el, titolo, nome = '') {
     // OK: un clic solo. Blocca soltanto un nome vietato (il filtro è locale, la risposta è immediata); un nome già usato si salva
     const fine = async () => {
       if (fatto) return;
-      const n = pulisciNome(inp.value) || 'Pilota';
+      const n = pulisciNome(inp.value) || 'pilota';
       await caricaLista();
       if (fatto) return;
       if (vietatoSubito(n)) { giro++; mostra(MSG_VIETATO, 'no'); inp.focus(); inp.select(); return; }
@@ -198,9 +198,33 @@ export function chiediNome(el, titolo, nome = '') {
     };
     controlla();          // anche il nome già scritto (l'ultimo usato) si controlla subito
     // uscendo dai risultati senza OK il record si salva lo stesso (main.js); un nome vietato diventa «Pilota»
-    el._confermaNome = () => { const n = pulisciNome(inp.value) || 'Pilota'; chiudi(vietatoSubito(n) ? 'Pilota' : n); };
+    el._confermaNome = () => { const n = pulisciNome(inp.value) || 'pilota'; chiudi(vietatoSubito(n) ? 'pilota' : n); };
     inp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); fine(); } };
     ok.onclick = fine;
     setTimeout(() => { inp.focus(); inp.select(); }, 50);
   });
 }
+
+// ------------------------------------------------------------------ settori (27-11)
+// Migliori di sempre per settore, per pista e versione (pistaRecord), solo dal time trial: servono al viola nel time trial.
+const KEY_SETT = 'cubo-corse-settori-v1';
+export function settoriRecord(pk) {
+  try { const a = (JSON.parse(localStorage.getItem(KEY_SETT) || '{}') || {})[pk]; return Array.isArray(a) ? a.map((x) => (x == null ? Infinity : x)) : null; } catch { return null; }
+}
+export function salvaSettoriRecord(pk, migliori) {
+  try {
+    const d = JSON.parse(localStorage.getItem(KEY_SETT) || '{}') || {};
+    d[pk] = migliori.map((x) => (Number.isFinite(x) ? Math.round(x * 1000) / 1000 : null));
+    localStorage.setItem(KEY_SETT, JSON.stringify(d));
+  } catch { /* storage pieno o bloccato */ }
+}
+/** tempo di settore (s.mmm, oltre il minuto m:ss.mmm) */
+export const fmtSett = (t) => (!Number.isFinite(t) ? '—' : t >= 60 ? fmt(t) : t.toFixed(3));
+/** migliori per colonna fra i giri (solo settori validi) */
+export const miglioriSettori = (giri, n) => Array.from({ length: n }, (_, i) => Math.min(...giri.map((g) => (g?.[i] && g[i].colore !== 'grigio' ? g[i].t : Infinity))));
+/** celle dei settori di un giro nei risultati: viola il migliore della colonna, grigio i settori di giri non validi */
+export const celleSettori = (sett, n, migliori) => Array.from({ length: n }, (_, i) => {
+  const s = sett?.[i];
+  const c = !s ? '' : s.colore === 'grigio' ? 'grigio' : s.t === migliori?.[i] ? 'viola' : '';
+  return `<td class="sett ${c}">${s ? fmtSett(s.t) : '—'}</td>`;
+}).join('');

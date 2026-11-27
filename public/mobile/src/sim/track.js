@@ -98,6 +98,7 @@ export class Track {
     }
     this.kappa = smoothClosed(k, 3);
     this.startS = def.startS || 0;
+    this.settori = def.settori || null;   // 27-11: confini dei settori (s assoluto), dai pacchetti di Circuit Studio
     this._buildGrid();
     this.curve = (def.curve || []).map((c, k) => ({
       name: c.name,

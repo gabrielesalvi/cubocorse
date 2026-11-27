@@ -17,7 +17,7 @@ export function normalizza(t) {
     .replace(/(.)\1+/g, '$1');
 }
 
-/** chiave per «nome già usato»: ignora solo maiuscole e accenti (Rossi = ROSSI = Rossì, ma Rosi ≠ Rossi). La userà anche il server */
+/** chiave per «nome già usato» (i nomi sono comunque sempre minuscoli dal 27-11; anche il server li salverà minuscoli): ignora solo maiuscole e accenti (Rossi = ROSSI = Rossì, ma Rosi ≠ Rossi). La userà anche il server */
 export const chiaveNome = (t) => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '');
 
 /** prepara la lista (già normalizzata) dal JSON */

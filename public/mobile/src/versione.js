@@ -7,4 +7,4 @@
 export const VERSIONE = '1.0.0';
 // 27-11: commit pubblicato (lo scrive strumenti/importa.py di cubocorse-sito; vuoto = copia locale): esce nella riga «Cali»,
 // così da ogni misura si capisce con quale versione è stata fatta (anche se l'app sul telefono era rimasta vecchia)
-export const COMMIT = '252d920';
+export const COMMIT = '67ca49c';

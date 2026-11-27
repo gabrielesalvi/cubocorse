@@ -97,6 +97,14 @@ export class Race {
     this.danniReali = !!opt.danniReali && !opt.timeTrial; // danni meccanici (prestazioni, distruzione); mai nel time trial
     this._pairT = new Map();
     const tr = this.track;
+    // 27-11 (Gabriele): tempi dei settori, in gara e nel time trial. Confini in metri dalla linea del traguardo: quelli del
+    // circuito (pacchetti di Circuit Studio, track.settori) o la pista divisa in tre parti uguali. bestSett = migliori della
+    // sessione fra tutte le auto (in gara) o i tuoi migliori di sempre su questa pista (time trial, opt.settoriRecord)
+    const Lt = tr.length;
+    const conf = (tr.settori && tr.settori.length ? tr.settori.map((x) => tr.wrapS(x - (tr.startS || 0))) : [Lt / 3, (2 * Lt) / 3])
+      .filter((x) => x > 30 && x < Lt - 30).sort((a, b) => a - b);
+    this.confini = conf;
+    this.bestSett = conf.map((_, i) => opt.settoriRecord?.[i] ?? Infinity).concat(opt.settoriRecord?.[conf.length] ?? Infinity);
     // time trial: solo il giocatore, giri illimitati, nessun semaforo, partenza da fermo 200 m prima dell'ultima curva
     // (giro di lancio: si passa il traguardo già lanciati); opt.lancioTT (metri prima del traguardo) la sostituisce
     this.timeTrial = !!opt.timeTrial;
@@ -133,6 +141,8 @@ export class Race {
       car.lapStart = 0;
       car.lapTimes = [];
       car.best = Infinity;
+      // 27-11: settori. sett = tempi del giro in corso, giriSett = un array per ogni giro finito, bestSett = migliori (giri puliti)
+      car.sett = []; car.settStart = 0; car.giriSett = []; car.bestSett = this.confini.map(() => Infinity).concat(Infinity);
       car.finished = false;
       car.finishTime = 0;
       car.slot = slot;
@@ -160,6 +170,29 @@ export class Race {
       this.cars.push(car);
     }
     if (this.timeTrial) { this.phase = 'gara'; this.started = true; this._rec = []; this._recK = 0; }
+  }
+
+  /**
+   * fine del settore n per l'auto: tempo, colore come in F1 (viola = migliore della sessione fra tutte le auto, o nel time
+   * trial il tuo migliore di sempre su questa pista; verde = tuo migliore della sessione; giallo = più lento; grigio = giro
+   * già non valido, non conta per i migliori). Evento solo per il giocatore.
+   */
+  _settore(car, n) {
+    const t = this.time - car.settStart;
+    car.settStart = this.time;
+    const valido = car.lapPulito !== false;
+    const rifViola = this.bestSett[n], rifTuo = car.bestSett[n];
+    let colore = 'grigio';
+    if (valido) {
+      colore = t < rifViola ? 'viola' : t < rifTuo ? 'verde' : 'giallo';
+      if (t < rifTuo) car.bestSett[n] = t;
+      if (t < rifViola) this.bestSett[n] = t;
+    }
+    car.sett.push({ t, colore });
+    if (car === this.player) {
+      const rif = this.timeTrial ? rifViola : rifTuo;   // delta: nel time trial dal tuo migliore di sempre, in gara dal migliore di questa gara
+      this.events.push({ t: 'settore', car, n, tempo: t, colore, valido, delta: Number.isFinite(rif) ? t - rif : null, ultimo: n === this.confini.length });
+    }
   }
 
   progress(car) {
@@ -246,11 +279,18 @@ export class Race {
       if (ds < -tr.length / 2) ds += tr.length;
       car.dist += ds;
       if (this.started && !car.finished) {
+        if (car.lap > 0) {
+          const nel = car.dist - (car.lap - 1) * tr.length;
+          while (car.sett.length < this.confini.length && nel >= this.confini[car.sett.length]) this._settore(car, car.sett.length);
+        }
         const lapsDone = Math.floor(car.dist / tr.length);
         if (car.dist >= 0 && lapsDone + 1 > car.lap) {
           // nuovo giro
           if (car.lap > 0) {
             const lt = this.time - car.lapStart;
+            while (car.sett.length < this.confini.length) this._settore(car, car.sett.length);   // (non dovrebbe servire)
+            this._settore(car, this.confini.length);                                            // ultimo settore = arrivo al traguardo
+            car.giriSett.push(car.sett);
             car.lapTimes.push(lt);
             car.best = Math.min(car.best, lt);
             const valido = car.lapPulito !== false;
@@ -262,6 +302,7 @@ export class Race {
           }
           car.lap = lapsDone + 1;
           car.lapStart = this.time;
+          car.sett = []; car.settStart = this.time;
           car.lapPulito = true;
           if (lapsDone >= this.laps) {
             car.finished = true;

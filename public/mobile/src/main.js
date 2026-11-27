@@ -209,8 +209,9 @@ class App {
   nomeRecord(v) { const id = this.pistaId(); return `${this.nomiPiste?.[id] || id} · v${v ?? versionePista(id)}`; }
   /** cosa serve costruire per la scelta del menu (la qualità conta solo nel mondo voxel: là cambia la costruzione) */
   chiaveSelezione() { const t = this.pista(); return `${t.id}|${this.versione(t)}|${t.mondo === 'voxel' ? this.settings.qual : this.cittaLeggera() ? 'leggera' : ''}`; }
-  /** 27-11: piste di Circuit Studio a Telefono o Bassa (anche con «Auto» che le sceglie): città leggera, va ricostruita */
-  cittaLeggera() { if (new URLSearchParams(location.search).get('leggera') === '0') return false; const q = this.settings.qual === 'auto' ? qualitaAutoCS() : this.settings.qual; return q === 'telefono' || q === 'basso'; }
+  /** 27-11: città leggera delle piste di Circuit Studio: su telefoni e tablet SEMPRE, qualunque qualità (Gabriele: «a prescindere
+   *  dalla qualità, anche ultra», anche iPad); sul PC a Telefono o Bassa (anche con «Auto» che le sceglie). ?leggera=0/1 per le prove */
+  cittaLeggera() { const L = new URLSearchParams(location.search).get('leggera'); if (L) return L === '1'; if (DISPOSITIVO_TOCCO) return true; const q = this.settings.qual === 'auto' ? qualitaAutoCS() : this.settings.qual; return q === 'telefono' || q === 'basso'; }
   /** la pista scelta è quella pronta dietro il menu? */
   pronta() { return !!this.mondo && !this._prep && this.chiaveMondo === this.chiaveSelezione(); }
 

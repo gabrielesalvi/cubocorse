@@ -3,7 +3,7 @@
   "short_name": "Cubo Corse",
   "description": "Corse GT nel browser: Monza 1:1 in voxel e i circuiti cittadini di Roncadelle.",
   "lang": "it",
-  "version": "1.0.0-4e713c0",
+  "version": "1.0.0-6702c8d",
   "start_url": "./?app=1",
   "scope": "./",
   "display": "fullscreen",

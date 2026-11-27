@@ -18,6 +18,7 @@ e quella di prima resta consultabile dalla tendina dei record.
 - Scelta della pista nuova: in alto i circuiti, a sinistra la mappa grande, a destra le varianti con la versione A/B.
 - Nel pannello Pista si passa da un circuito all'altro senza scatti: la pista si prepara quando chiudi il pannello (o premi VIA), non a ogni tocco.
 - L'auto nella vetrina del menu si gira bene anche col dito: segue il dito e, lasciata, continua a girare per inerzia.
+- Mentre una pista si prepara dietro il menu, l'auto della vetrina continua a girare: il caricamento lascia spazio al disegno invece di bloccarlo per secondi.
   Il pannello resta uguale qualunque circuito scegli. Roncadelle è un circuito solo, «Roncacircuit», con le sue
   varianti (per ora Classico e Nenni); i record di prima restano.
 

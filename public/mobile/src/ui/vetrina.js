@@ -79,7 +79,8 @@ export class Vetrina {
   disegna(dt) {
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     if (!w || !h) return;
-    if (this.canvas.width !== Math.round(w * this.r.getPixelRatio()) || this.canvas.height !== Math.round(h * this.r.getPixelRatio())) {
+    // 27-11: three.js arrotonda per difetto (floor): con Math.round e una larghezza non intera rifaceva il canvas A OGNI fotogramma
+    if (this.canvas.width !== Math.floor(w * this.r.getPixelRatio()) || this.canvas.height !== Math.floor(h * this.r.getPixelRatio())) {
       this.r.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
     }
     dt = Math.min(dt, 1 / 30);                                   // dopo un fotogramma lungo non salta avanti di colpo

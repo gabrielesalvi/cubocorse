@@ -94,7 +94,7 @@ export class MondoVoxel {
     this.nomePista = track.nome;
     this.scene = new THREE.Scene();
     avanza(0.2, 'Calcolo la traiettoria ideale…'); await nextFrame();
-    const rl = rlFn(track);
+    const rl = await rlFn(track);
     avanza(0.3, 'Stendo asfalto, cordoli e vie di fuga…'); await nextFrame();
     const tW = performance.now();
     this.world = new TrackWorld(track, rl, { terrainRange: q.terrainRange, cell: q.cell });
@@ -217,6 +217,8 @@ export class MondoVoxel {
 
   disegna(t) { this.renderer.render(t); }
   compila() { this.renderer.r.compile(this.scene, this.camera); }
+  /** 27-11: shader compilati in parallelo prima di mostrare il mondo (prima il primo fotogramma si fermava ad aspettarli) */
+  compilaAsync() { return this.renderer.r.compileAsync ? this.renderer.r.compileAsync(this.scene, this.camera) : Promise.resolve(); }
 
   // ---- modalità foto: obiettivo, messa a fuoco, sfocatura, esposizione, filtri
   get fotoCompleta() { return true; }

@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import { caricaPacchetto } from '../../cs/viewer/src/dati/pacchetto.js';
 import { TIFO, sorgentiTifo } from '../../cs/viewer/src/costruttori/pubblico.js';
-import { pistaDaPacchetto } from '../sim/pista.js';
+import { pistaDaPacchettoAsync } from '../sim/pista.js';
 import { costruisciMondo, Cielo, ORE, METEO } from '../gfx/pacchetto/mondo.js';
 import { gommaTraiettoria } from '../gfx/pacchetto/asfalto.js';
 import { aggiungiFari } from '../gfx/pacchetto/fari.js';
@@ -109,10 +109,10 @@ export class MondoPacchetto {
     this.pistaId = `${id}-${v}`;
     this.nomePista = `${C.nome} ${v}`;
     avanza(0.1, `Preparo la pista ${v} per la fisica…`); await nextFrame();
-    const { track, griglia } = pistaDaPacchetto(this.dati, v);
+    const { track, griglia } = await pistaDaPacchettoAsync(this.dati, v);
     this.track = track; this.griglia = griglia;
     avanza(0.18, 'Calcolo la traiettoria ideale…'); await nextFrame();
-    const rl = rlFn(track);
+    const rl = await rlFn(track);
     if (this.mondo) { this.scene.remove(this.mondo); this.mondo.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
     this.mondo = await costruisciMondo(this.dati, v, (p, t) => avanza(0.25 + p * 0.7, `Costruisco il modello: ${t}…`));
     this.scene.add(this.mondo);
@@ -273,6 +273,8 @@ export class MondoPacchetto {
     if (this.post) this.post.render(); else this.r.render(this.scene, this.camera);
   }
   compila() { this.r.compile(this.scene, this.camera); }
+  /** 27-11: shader compilati in parallelo prima di mostrare il mondo (prima il primo fotogramma si fermava ad aspettarli) */
+  compilaAsync() { return this.r.compileAsync ? this.r.compileAsync(this.scene, this.camera) : Promise.resolve(); }
   /** 19-11 (banco di prova di Circuit Studio): nello specchietto le persone entro 25 m complete, fino a 120 m solo busto e
    *  testa, oltre niente (prima ~250.000 triangoli in più per fotogramma). */
   conSpecchio(pVis, disegna) {

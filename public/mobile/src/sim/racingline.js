@@ -3,6 +3,7 @@
 // Provati e scartati in Cubo Corse il 07-11 (vedi STATO.md): rifinitura laplaciana (segue le corde, +10 s al giro),
 // biarmonico pesato sugli apici e partenza da una linea «corta» (il biarmonico converge sempre alla stessa linea).
 import { profiloIA } from './profili.js';
+import { finisci, finisciAPezzi } from '../cedi.js';
 // Traiettoria ideale (curvatura minima a "elastico") + profilo di velocità.
 
 const G = 9.81;
@@ -13,7 +14,11 @@ const G = 9.81;
  * con le ruote ma senza passarlo con l'auto); mBarriera = mai più vicino di così alla barriera (cittadini).
  * muScale < 1 sul bagnato.
  */
-export function buildRacingLine(track, spec, { muScale = 1, profilo } = {}) {
+export function buildRacingLine(track, spec, opt = {}) { return finisci(passiTraiettoria(track, spec, opt)); }
+/** 27-11: la stessa a pezzi, per il caricamento dietro il menu (la vetrina continua a girare) */
+export function buildRacingLineAsync(track, spec, opt = {}) { return finisciAPezzi(passiTraiettoria(track, spec, opt)); }
+
+function* passiTraiettoria(track, spec, { muScale = 1, profilo } = {}) {
   const P = profilo || profiloIA(track);
   const n = track.n, step = track.step;
   const off = new Float64Array(n);
@@ -56,6 +61,7 @@ export function buildRacingLine(track, spec, { muScale = 1, profilo } = {}) {
     const K = Math.max(1, Math.round(k / step));
     const iters = 500;
     for (let it = 0; it < iters; it++) {
+      if ((it & 15) === 15) yield;
       for (let i = 0; i < n; i++) {
         // rilassamento biarmonico: minimizza la variazione di direzione (curvatura), non la lunghezza
         const a = (i - K + n) % n, b = (i + K) % n, a2 = (i - 2 * K + n) % n, b2 = (i + 2 * K) % n;

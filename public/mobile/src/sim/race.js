@@ -6,7 +6,7 @@
 import { Car, CARS, MODELLI_GUIDA } from './car.js';
 import { AIDriver } from './ai.js';
 import { profiloIA } from './profili.js';
-import { buildRacingLine } from './racingline.js';
+import { buildRacingLine, buildRacingLineAsync } from './racingline.js';
 import { collideCars } from './collide.js';
 import { SURF } from './track.js';
 import { nuoviDanni } from './car.js';
@@ -56,6 +56,18 @@ function racingLineFor(track, spec, wet = 0) {
   const k = `${spec.id}|${wet}`;
   if (!m[k]) m[k] = buildRacingLine(track, spec, { muScale: 1 - 0.24 * wet });
   return m[k];
+}
+
+/** 27-11: traiettorie delle auto calcolate prima, a pezzi, mentre la pista si carica dietro il menu (Race le trova pronte).
+ *  pronta = { spec, rl } già calcolata (quella di CARS[0] all'asciutto) */
+export async function preparaLinee(track, specs, wet = 0, pronta = null) {
+  let m = rlCache.get(track);
+  if (!m) rlCache.set(track, (m = {}));
+  if (pronta && !m[`${pronta.spec.id}|0`]) m[`${pronta.spec.id}|0`] = pronta.rl;
+  for (const spec of specs) {
+    const k = `${spec.id}|${wet}`;
+    if (!m[k]) m[k] = await buildRacingLineAsync(track, spec, { muScale: 1 - 0.24 * wet });
+  }
 }
 
 export class Race {

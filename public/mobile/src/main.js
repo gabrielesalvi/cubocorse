@@ -5,8 +5,9 @@
 // all'altro ricarica la pagina (renderer diversi: quello dei pacchetti usa la profondità logaritmica).
 import * as THREE from 'three';
 import { CARS, MODELLO, setModelloGuida, setArcadeTuning, MARGINI_STERZO } from './sim/car.js';
-import { Race, LIVREE } from './sim/race.js';
-import { buildRacingLine } from './sim/racingline.js';
+import { Race, LIVREE, preparaLinee } from './sim/race.js';
+import { buildRacingLineAsync } from './sim/racingline.js';
+import { cedi } from './cedi.js';
 import { racingLineMesh } from './gfx/linea.js';
 import * as REC from './ui/record.js';
 import { Specchio } from './gfx/specchio.js';
@@ -242,8 +243,17 @@ class App {
           if (job.annullato) throw ANNULLATO;
           job.tempi.push([performance.now(), m.replace(/…$/, '')]);
           if (this._prep === job) this.statoCarico(p, `${t.nome}: ${m.replace(/…$/, '')}`);
-        }, (tr) => buildRacingLine(tr, CARS[0]));
+        }, (tr) => buildRacingLineAsync(tr, CARS[0]));
         if (job.annullato) throw ANNULLATO;
+        // 27-11: traiettorie dell'IA e del giocatore a pezzi adesso, non tutte insieme in setupRace (vetrina ferma 1-2 s)
+        job.tempi.push([performance.now(), 'traiettorie']);
+        if (this._prep === job) this.statoCarico(0.97, `${t.nome}: preparo gli avversari`);
+        await preparaLinee(res.track, [...this.autoIA(M).map((k) => CARS[k]), CARS[s.car] || CARS[0]], M.wet || 0, { spec: CARS[0], rl: res.rl });
+        if (job.annullato) throw ANNULLATO;
+        job.tempi.push([performance.now(), 'shader']);
+        try { await M.compilaAsync(); } catch (e) { console.warn('shader', e); }
+        if (job.annullato) throw ANNULLATO;
+        await cedi();
         job.tempi.push([performance.now(), 'installa']);
         this.installa(M, res, chiave);
         this.ultimoCarico = tempiCarico(t.id, job.tempi, this._tInstalla);
@@ -285,9 +295,22 @@ class App {
     this._tInstalla = { gara: t1 - t0, shader: performance.now() - t1 };
     M.canvas.classList.remove('attesa');
     M.canvas.id = 'gl';
-    if (vecchio) vecchio.distruggi();
     this.recordMenu();
+    if (vecchio) this.butta(vecchio);
   }
+
+  /** 27-11: il mondo vecchio si chiude a pezzi, dopo che il nuovo è al suo posto (prima: 1-2 s di vetrina ferma) */
+  async butta(W) {
+    W.canvas.classList.add('attesa'); W.canvas.id = '';
+    await cedi();
+    try { W.scene?.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); } catch (e) { console.warn(e); }
+    await cedi();
+    W.distruggi();
+  }
+
+  /** auto dell'IA secondo la pista (Gabriele 20-11): sulle piste voxel solo le auto voxel, su quelle di Circuit Studio
+   *  solo le sue tre auto; il giocatore sceglie quella che vuole */
+  autoIA(W) { return CARS.map((c, k) => (c.modello === (W.tipo === 'voxel' ? 'voxel' : 'lowpoly') ? k : -1)).filter((k) => k >= 0); }
 
   /** pulsante VIA e riga di stato del menu durante il caricamento dietro il menu; senza argomenti = pronto */
   statoCarico(p, msg) {
@@ -334,9 +357,7 @@ class App {
       playerCar: s.car, playerLivery: s.livery, wet: W.wet, seed: (Date.now() & 0xffff),
       penLimiti: !!s.penLimiti, penContatti: !!s.penContatti, timeTrial: s.modo === 'tempo', nAuto: s.nAuto, danniReali: s.danni === 'meccanici',
       griglia: this.griglia,
-      // auto dell'IA secondo la pista (Gabriele 20-11): sulle piste voxel solo le auto voxel, su quelle di Circuit Studio
-      // solo le sue tre auto; il giocatore sceglie quella che vuole
-      autoIA: CARS.map((c, k) => (c.modello === (W.tipo === 'voxel' ? 'voxel' : 'lowpoly') ? k : -1)).filter((k) => k >= 0),
+      autoIA: this.autoIA(W),
     });
     // time trial: fantasma del giro migliore per questa pista (uno solo, qualunque sia il comando: 21-11)
     if (this.ghost) { this.ghost.dispose(); this.ghost = null; }
@@ -898,6 +919,9 @@ class App {
     // vetrina dell'auto: solo col menu davanti
     if (this.mode === 'menu' && this.vetrina && $id('menu').classList.contains('show')) this.vetrina.disegna(dt);
     if (!this.mondo || !this.race) return;        // la prima pista si sta ancora costruendo dietro il menu
+    // 27-11: mentre la pista nuova si prepara, la vecchia dietro il menu resta ferma sull'ultima immagine: ogni fotogramma
+    // va alla vetrina e al caricamento (sul telefono il mondo dietro costava quanto un fotogramma di gara)
+    if (this.mode === 'menu' && this._prep) return;
     const race = this.race, W = this.mondo;
     const simulate = (this.mode === 'race' || this.mode === 'results') && !this.paused && !this.photo;
     this._msFis = 0;

@@ -1,4 +1,5 @@
 // Scenario dei tre circuiti: posiziona i modelli voxel (props.js) attorno alla pista.
+import { cediSeServe } from '../cedi.js';
 import * as THREE from 'three';
 import { meshGrid, voxelMaterials, MAT, VoxelGrid } from './voxel.js';
 import { Crowd } from './crowd.js';
@@ -407,7 +408,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
   const batch = new Batcher(QP === '0' ? Infinity : (+QP || q.palazziLontani || Infinity));
   const trees = { pino: [], cipresso: [], latifoglia: [], palma: [] };
   const treeModels = {};
-  for (const k of Object.keys(trees)) treeModels[k] = [0, 1, 2].map(() => P.albero(rnd, k));
+  for (const k of Object.keys(trees)) { treeModels[k] = [0, 1, 2].map(() => P.albero(rnd, k)); await cediSeServe(); }   // 27-11: a pezzi, la vetrina del menu intanto gira
   const addTree = (kind, x, z, s = 1) => {
     trees[kind].push({ x, y: H(x, z) - 0.1, z, yaw: rnd() * 6.28, s: s * (0.8 + rnd() * 0.45), v: Math.floor(rnd() * 3) });
   };
@@ -513,6 +514,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     // palazzi su entrambi i lati, fronte verso la pista
     let placed = 0;
     for (let s = 0; s < track.length; s += 9) {
+      await cediSeServe();
       for (const side of [-1, 1]) {
         const i = Math.floor(s / track.step) % track.n;
         const E = side > 0 ? track.R : track.L;
@@ -535,6 +537,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     // riempi l'entroterra (a nord) con case più lontane
     const b = track.bounds;
     for (let k = 0; k < 220; k++) {
+      await cediSeServe();
       const x = b.minx - 80 + rnd() * (b.maxx - b.minx + 160), z = b.minz - 160 + rnd() * (-b.minz + 140);
       if (z > -30) continue;
       if (!free(x, z, 8, 6)) continue;
@@ -558,6 +561,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     stripMat.color.multiplyScalar(3);
     const boxes = [], strips = [];
     for (let i = 0; i < track.n; i += 2) {
+      await cediSeServe();
       const x = track.px[i], z = track.pz[i];
       if (!(x < ta && x > tb && z < -140)) continue;
       const w = track.w[i];
@@ -589,6 +593,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     if (boxes.length) group.add(boxIM(boxes, wallMat, true), boxIM(strips, stripMat, false));
     // lungomare: palme, tribune sul mare, yacht, faro, gru
     for (let x = -480; x < 330; x += 22) {
+      await cediSeServe();
       const p = { x: x + rnd() * 6, z: 9 + rnd() * 2 };
       if (world.isFree(p.x, p.z, 0.5)) addTree('palma', p.x, p.z);
     }
@@ -598,12 +603,14 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     standAlong(track.curve[1]?.s ?? 1280, -1, 40, 8, batch, 4);
     standAlong(track.curve[4]?.s ?? 2140, 1, 40, 8, batch, 4);
     for (let k = 0; k < 34; k++) {
+      await cediSeServe();
       const len = 10 + rnd() * 18;
       const y = P.yacht(rnd, { lunghezza: Math.round(len) });
       const x = -560 + rnd() * 980, z = 34 + rnd() * 150;
       batch.add(geoOf(y), M4(x, 0.1, z, (rnd() < 0.5 ? 0 : Math.PI) + (rnd() - 0.5) * 0.4));
     }
     for (let k = 0; k < 16; k++) {
+      await cediSeServe();
       const bt = P.barca(rnd);
       const x = -600 + rnd() * 300, z = 18 + rnd() * 20;
       batch.add(geoOf(bt), M4(x, 0.1, z, rnd() * 6.28));
@@ -619,10 +626,12 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     const fl = fa.extra?.luce;
     if (fl) lamps.push({ x: 496 + fl.x, y: 2 + fl.y, z: 162 + fl.z, r: 30, i: 300, color: 0xfff0c0 });
     for (const [x, z] of [[-660, -40], [-700, -10]]) {
+      await cediSeServe();
       if (P.gru) batch.add(geoOf(P.gru(rnd)), M4(x, H(x, z), z, rnd() * 6.28));
     }
     // pini sulla collina
     for (let k = 0; k < 500 * (q.trees || 1); k++) {
+      await cediSeServe();
       const x = -700 + rnd() * 1300, z = -650 + rnd() * 560;
       if (H(x, z) > 9 && free(x, z, 3, 5)) addTree(rnd() < 0.75 ? 'pino' : 'cipresso', x, z);
     }
@@ -679,6 +688,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     // casali e pievi
     let n = 0;
     for (let k = 0; k < 400 && n < 9; k++) {
+      await cediSeServe();
       const x = -700 + rnd() * 1900, z = -400 + rnd() * 1200;
       if (!free(x, z, 14, 30)) continue;
       const m = n === 0 && P.cappella ? P.cappella(rnd) : P.casale(rnd);
@@ -688,6 +698,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     }
     // pieve vicino al tornante (dà il nome alla curva) e cappella
     for (const [ci, off] of [[2, -40], [3, 30]]) {
+      await cediSeServe();
       const cs = track.curve[ci].s;
       const i = Math.floor(cs / track.step) % track.n;
       const side = track.kappa[i] > 0 ? -1 : 1;
@@ -698,6 +709,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     await nextFrame();
     // filari di cipressi lungo i rettilinei
     for (let s = 0; s < track.length; s += 14) {
+      await cediSeServe();
       const i = Math.floor(s / track.step) % track.n;
       if (Math.abs(track.kappa[i]) > 1 / 500) continue;
       for (const side of [-1, 1]) {
@@ -709,6 +721,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     const N = Math.round(2600 * (q.trees || 1));
     const b = track.bounds;
     for (let k = 0; k < N; k++) {
+      await cediSeServe();
       const x = b.minx - 350 + rnd() * (b.maxx - b.minx + 700), z = b.minz - 350 + rnd() * (b.maxz - b.minz + 700);
       const f = fbm(x / 180 + 4, z / 180 + 1);
       if (f < 0.5) continue;
@@ -727,6 +740,7 @@ export async function buildScenery(track, world, q, progress = () => {}) {
     // tribune: dai poligoni OSM vicini alla pista
     let used = 0;
     for (const t of J.tribune || []) {
+      await cediSeServe();
       const pts = t.pts;
       if (pts.length < 3) continue;
       let cx = 0, cz = 0;
@@ -753,13 +767,15 @@ export async function buildScenery(track, world, q, progress = () => {}) {
       used++;
     }
     // se OSM ne ha poche vicino al rettilineo, aggiungi la tribuna centrale
-    standAlong(track.startS + 60, -1, 120, 16, batch, 5);
-    standAlong(track.startS - 120, -1, 90, 14, batch, 5);
-    standAlong((track.curve[0]?.s ?? 650) - 60, -1, 70, 12, batch, 30);
-    standAlong((track.curve[8]?.s ?? 4850) + 200, -1, 90, 12, batch, 34);
+    await cediSeServe(); standAlong(track.startS + 60, -1, 120, 16, batch, 5);
+    await cediSeServe(); standAlong(track.startS - 120, -1, 90, 14, batch, 5);
+    await cediSeServe(); standAlong((track.curve[0]?.s ?? 650) - 60, -1, 70, 12, batch, 30);
+    await cediSeServe(); standAlong((track.curve[8]?.s ?? 4850) + 200, -1, 90, 12, batch, 34);
+    await cediSeServe();
     // box: lato destro del rettilineo, oltre la corsia box
     if (P.boxPit) {
       for (let k = 0; k < 6; k++) {
+        await cediSeServe();
         const s = track.startS - 260 + k * 62;
         const i = Math.floor(track.wrapS(s) / track.step) % track.n;
         const p = track.pointAt(s, track.R.barD[i] + 7.5);

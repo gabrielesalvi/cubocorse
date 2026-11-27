@@ -8,6 +8,7 @@
 // Misure scelte provando 150/250/400/500 m: riquadri piccoli tolgono più triangoli ma moltiplicano le chiamate di disegno;
 // 400 m (300 per le istanze) e solo mesh da 60.000 triangoli in su = circa -35% triangoli con +50% chiamate.
 import * as THREE from 'three';
+import { cediSeServe } from '../../cedi.js';
 
 const _v = new THREE.Vector3(), _m = new THREE.Matrix4(), _b = new THREE.Box3();
 
@@ -95,7 +96,7 @@ function dividiIstanze(m, lato) {
  * divide le mesh grandi del mondo in riquadri. Si applica solo dove conviene: mesh con almeno `minTri` triangoli (o
  * InstancedMesh con almeno `minIstanze` istanze) e un ingombro più largo di un riquadro. Restituisce un riassunto.
  */
-export function tassella(mondo, { lato = 400, latoIstanze = 300, minTri = 60000, minIstanze = 60 } = {}) {
+export async function tassella(mondo, { lato = 400, latoIstanze = 300, minTri = 60000, minIstanze = 60 } = {}) {
   mondo.updateMatrixWorld(true);
   const da = [];
   mondo.traverse((o) => {
@@ -115,6 +116,7 @@ export function tassella(mondo, { lato = 400, latoIstanze = 300, minTri = 60000,
   });
   const ris = { mesh: 0, riquadri: 0 };
   for (const o of da) {
+    await cediSeServe();                                                // 27-11: una mesh per volta, il menu intanto disegna
     const nuovo = o.isInstancedMesh ? dividiIstanze(o, latoIstanze) : dividiMesh(o, lato);
     if (!nuovo) continue;
     const p = o.parent, i = p.children.indexOf(o);

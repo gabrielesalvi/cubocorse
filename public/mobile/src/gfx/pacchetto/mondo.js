@@ -23,7 +23,9 @@ import { tassella } from './tassella.js';
 import { luciNotte, Notte } from '../../../cs/viewer/src/costruttori/notte.js';
 import { starsPoints } from '../textures.js';
 
-const pausa = () => new Promise((r) => setTimeout(r, 0));
+import { cediSeServe } from '../../cedi.js';
+// 27-11: fra un passo e l'altro un fotogramma vero (prima setTimeout 0: il browser spesso non disegnava, vetrina ferma)
+const pausa = cediSeServe;
 
 /** costruisce il mondo della versione v; avanza(frazione, testo) per la barra di caricamento */
 export async function costruisciMondo(dati, v, avanza = () => {}) {
@@ -38,12 +40,11 @@ export async function costruisciMondo(dati, v, avanza = () => {}) {
     ['verde', () => add(superficie(contesto.verde, { terreno, colore: SUPERFICI.verde, scarto: 0.02, nome: 'Verde', passo: 10, lato: 10 }))],
     ['campi', () => add(superficie(contesto.campi, { terreno, colore: SUPERFICI.campo, scarto: 0.03, nome: 'Campi sportivi' }))],
     ['parcheggi', () => add(superficie(contesto.parcheggi, { terreno, colore: SUPERFICI.parcheggio, scarto: 0.035, nome: 'Parcheggi' }))],
-    ['edifici', () => {
-      const LM = landmarkDettagliati(circuito, contesto, terreno);           // landmark descritti al posto dei volumi semplici
-      add(LM.gruppo, true);
-      add(edificiCitta(contesto.edifici.filter((e) => !LM.ids.has(e.landmark)), { asse: circuito.asse.punti, nucleo: nucleoStorico(circuito) }), true);
-      add(campiSportivi(contesto.campi, terreno), true);
-    }],
+    // 27-11: in tre passi (landmark, palazzi, campi) invece di uno: fra l'uno e l'altro il menu disegna
+    ['edifici', () => { g.userData._LM = landmarkDettagliati(circuito, contesto, terreno); add(g.userData._LM.gruppo, true); }],   // landmark descritti al posto dei volumi semplici
+    ['palazzi', () => { const LM = g.userData._LM; delete g.userData._LM;
+      add(edificiCitta(contesto.edifici.filter((e) => !LM.ids.has(e.landmark)), { asse: circuito.asse.punti, nucleo: nucleoStorico(circuito) }), true); }],
+    ['impianti sportivi', () => add(campiSportivi(contesto.campi, terreno), true)],
     ['pensiline', () => { const DS = distributori(circuito, contesto, terreno, versioni); add(DS.gruppo, true); add(volumi((contesto.pensiline || []).filter((p) => !DS.usate.has(p)), { nome: 'Pensiline' }), true); }],
     ['alberi', () => add(alberi(contesto.alberi, { terreno, nome: 'Alberi', escludi: (f) => f & (v === 'A' ? 1 : 2) }), true)],
   ];
@@ -105,11 +106,13 @@ export async function costruisciMondo(dati, v, avanza = () => {}) {
   const N = new Notte(luciNotte(dati, v, { lampioni: g.userData.lampioni }), terreno, { nLuci: 6 }); g.add(N.g); g.userData.notte = N;
   // 21-11: lampade dei lampioni più piccole (1,6 m in cs/viewer, che è una copia: qui senza toccarla), come i fari
   N.g.traverse((o) => { if (o.isPoints && o.name === 'Lampade') o.material.size = 0.6; });
+  await pausa();
   applicaAsfalto(g);                     // rev. 9: asfalto e vernice PBR con texture e riflessi (asfalto.js)
   // 11-11 (prestazioni): le mesh grandi quanto la città divise in riquadri, così le parti fuori inquadratura non si disegnano
   // (tassella.js; ?tasselli=0 per confrontare senza, ?tasselli=<lato mesh>,<lato istanze> in metri per provare altre misure)
   const T = new URLSearchParams(globalThis.location?.search || '').get('tasselli');
-  if (T !== '0') { const [a, b, c] = (T || '').split(',').map(Number); g.userData.tasselli = tassella(g, T ? { lato: a || 1e9, latoIstanze: b || a || 1e9, minTri: c || undefined } : {}); }
+  await pausa();
+  if (T !== '0') { const [a, b, c] = (T || '').split(',').map(Number); g.userData.tasselli = await tassella(g, T ? { lato: a || 1e9, latoIstanze: b || a || 1e9, minTri: c || undefined } : {}); }
   g.updateMatrixWorld(true);
   return g;
 }

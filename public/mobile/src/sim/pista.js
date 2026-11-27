@@ -11,6 +11,7 @@
 // La quota è quella della superficie disegnata: terreno del pacchetto (già raccordato al profilo di progetto)
 // più il rialzo in curva; sul cavalcavia e sulle rampe, la quota dell'impalcato.
 
+import { finisci, finisciAPezzi } from '../cedi.js';
 import { Track, SURF, BAR } from './track.js';
 
 const PASSO = 2;
@@ -64,7 +65,11 @@ const TIPO_BAR = { barriera: BAR.WALL, parapetto: BAR.WALL, varco: BAR.WALL, mur
  */
 export const PROFILO_VERSIONE = { A: 'cittadino', B: 'cittadinoVeloce' };
 
-export function pistaDaPacchetto(dati, v = 'B', { profiloIA } = {}) {
+export function pistaDaPacchetto(dati, v = 'B', opt = {}) { return finisci(passiPista(dati, v, opt)); }
+/** 27-11: la stessa a pezzi, per il caricamento dietro il menu */
+export function pistaDaPacchettoAsync(dati, v = 'B', opt = {}) { return finisciAPezzi(passiPista(dati, v, opt)); }
+
+function* passiPista(dati, v = 'B', { profiloIA } = {}) {
   const { circuito, terreno } = dati, V = dati.versioni[v], lv = V.livelli;
   const P = circuito.asse.punti, n = P.length, passoA = circuito.asse.passo_m;
   const bp = V.bordi_pista;
@@ -111,6 +116,7 @@ export function pistaDaPacchetto(dati, v = 'B', { profiloIA } = {}) {
   const runAt = (x, y) => (IG.dentro(x, y) ? SURF.GRAVEL : IE.dentro(x, y) ? SURF.GRASS : IF.dentro(x, y) ? SURF.RUNOFF : IM.dentro(x, y) ? SURF.SIDEWALK : SURF.RUNOFF);
   const rSx = new Uint8Array(n), rDx = new Uint8Array(n);
   for (let i = 0; i < n; i++) {
+    if ((i & 127) === 127) yield;
     for (const [lato, R, ed, kk, bb] of [[-1, rSx, bp.sinistra, kSx, barSx], [1, rDx, bp.destra, kDx, barDx]]) {
       // due punti nella fascia fra cordolo e barriera: vince il più "lento" (erba o ghiaia)
       const e = ed[i], b = bb[i], t1 = Math.min(b - 0.3, e + 0.8), t2 = Math.min(b - 0.3, e + 2.5);
@@ -143,6 +149,7 @@ export function pistaDaPacchetto(dati, v = 'B', { profiloIA } = {}) {
   };
   const tSx = new Uint8Array(n), tDx = new Uint8Array(n);
   for (let i = 0; i < n; i++) {
+    if ((i & 255) === 255) yield;
     tSx[i] = v === 'B' ? tipoBar(P[i][0] - NX[i] * barSx[i], P[i][1] - NY[i] * barSx[i]) : BAR.WALL;
     tDx[i] = v === 'B' ? tipoBar(P[i][0] + NX[i] * barDx[i], P[i][1] + NY[i] * barDx[i]) : BAR.WALL;
   }
@@ -159,7 +166,9 @@ export function pistaDaPacchetto(dati, v = 'B', { profiloIA } = {}) {
     const t = ((a[0] - ox) * ey - (a[1] - oy) * ex) / den, u = ((a[0] - ox) * dy - (a[1] - oy) * dx) / den;
     return t >= 0 && u >= 0 && u <= 1 ? t : null;
   };
+  yield;
   if (IC.p.length) for (let i = 0; i < n; i++) {
+    if ((i & 63) === 63) yield;
     const nx = NX[i] * pitLato, ny = NY[i] * pitLato, ed = pitLato > 0 ? bp.destra[i] : bp.sinistra[i];
     let l0 = -1, l1 = -1;
     for (let d = Math.max(0, ed - 0.6); d < 40; d += 0.2) {
@@ -189,6 +198,7 @@ export function pistaDaPacchetto(dati, v = 'B', { profiloIA } = {}) {
   // campioni centrali (pacchetto)
   const cOff = new Float64Array(n), cx = new Float64Array(n), cy = new Float64Array(n), cz = new Float64Array(n), hw = new Float64Array(n), bank = new Float64Array(n);
   for (let i = 0; i < n; i++) {
+    if ((i & 255) === 255) yield;
     const sx = bp.sinistra[i] - kSx[i], dx = bp.destra[i] - kDx[i], c = (dx - sx) / 2;
     cx[i] = P[i][0] + NX[i] * c; cy[i] = P[i][1] + NY[i] * c; hw[i] = (sx + dx) / 2; cOff[i] = c;
     const rs = bp.rialzo_sx ? bp.rialzo_sx[i] : 0, rd = bp.rialzo_dx ? bp.rialzo_dx[i] : 0;
@@ -245,12 +255,18 @@ export function pistaDaPacchetto(dati, v = 'B', { profiloIA } = {}) {
     griglia.push({ s: mappaS(g.s + al - 2.4), d: lat - c, pos: g.pos });
   }
   griglia.sort((a, b) => a.pos - b.pos);
+  yield;
+  const solidi = globalThis.process?.env?.SOLIDI === '0' ? null : [...solidiDaPacchetto(lv, terreno)];
+  yield;
+  if (solidi) solidi.push(...ostacoliCitta(dati, v));
+  yield;
   const def = {
     id: `${circuito.id}-${v}`, nome: `${circuito.nome} · ${v}`, stile: 'citta', samples, esatto: true, lati: { L, R },
-    solidi: globalThis.process?.env?.SOLIDI === '0' ? null : [...solidiDaPacchetto(lv, terreno), ...ostacoliCitta(dati, v)],   // SOLIDI=0: vecchia fisica (solo per i confronti nei test)
+    solidi,   // SOLIDI=0: vecchia fisica (solo per i confronti nei test)
     startS: 0, curve: (circuito.curve || []).map((c) => ({ name: `${c.numero} ${c.nome}`, s: mappaS((c.da + c.a) / 2) })),
     profiloIA: profiloIA || circuito.versioni?.[v]?.profilo_ia || PROFILO_VERSIONE[v] || 'cittadino',
   };
+  yield;
   const track = new Track(def);
   if (track.pit) track.pit.limite = (circuito.pit?.limite_kmh || 60) / 3.6;
   return { track, mappa: { s: mappaS }, griglia, lunghezzaAsse: n * passoA };

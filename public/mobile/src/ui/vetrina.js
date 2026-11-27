@@ -34,9 +34,29 @@ export class Vetrina {
     this.camera = new THREE.PerspectiveCamera(26, 2, 0.1, 100);
     this.camera.position.set(7.4, 2.7, 7.4); this.camera.lookAt(0, 0.55, 0);
     this.ang = -0.6; this.vel = 0.35; this._trascina = null;
-    canvas.addEventListener('pointerdown', (e) => { this._trascina = { x: e.clientX, a: this.ang }; canvas.setPointerCapture(e.pointerId); });
-    canvas.addEventListener('pointermove', (e) => { if (this._trascina) this.ang = this._trascina.a + (e.clientX - this._trascina.x) * 0.012; });
-    const su = () => { this._trascina = null; };
+    // 27-11: col dito il browser si prendeva il gesto (touch-action, ora in style.css) e mandava pointercancel dopo pochi
+    // pixel → solo uno scatto. Ora segue il dito e, lasciata, continua per inerzia e torna piano alla rotazione lenta.
+    this.spin = 0;
+    canvas.addEventListener('pointerdown', (e) => {
+      if (this._trascina) return;
+      this._trascina = { id: e.pointerId, x: e.clientX, t: performance.now() }; this.spin = 0;
+      try { canvas.setPointerCapture(e.pointerId); } catch { /* niente */ }
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      const T = this._trascina;
+      if (!T || e.pointerId !== T.id) return;
+      const now = performance.now(), da = (e.clientX - T.x) * (6 / Math.max(320, canvas.clientWidth)), dt = Math.max(1, now - T.t) / 1000;
+      this.ang += da;
+      this.spin = this.spin * 0.6 + (da / dt) * 0.4;          // velocità del dito, smussata
+      T.x = e.clientX; T.t = now;
+    });
+    const su = (e) => {
+      const T = this._trascina;
+      if (!T || e.pointerId !== T.id) return;
+      if (performance.now() - T.t > 120) this.spin = 0;          // dito fermo prima di alzarlo: niente lancio
+      this.spin = Math.max(-12, Math.min(12, this.spin));
+      this._trascina = null;
+    };
     canvas.addEventListener('pointerup', su); canvas.addEventListener('pointercancel', su);
     this.chiave = '';
   }
@@ -62,7 +82,8 @@ export class Vetrina {
     if (this.canvas.width !== Math.round(w * this.r.getPixelRatio()) || this.canvas.height !== Math.round(h * this.r.getPixelRatio())) {
       this.r.setSize(w, h, false); this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
     }
-    if (!this._trascina) this.ang += this.vel * dt;
+    dt = Math.min(dt, 1 / 30);                                   // dopo un fotogramma lungo non salta avanti di colpo
+    if (!this._trascina) { this.ang += (this.vel + this.spin) * dt; this.spin *= Math.exp(-2.2 * dt); }
     this.perno.rotation.y = this.ang;
     this.r.render(this.scene, this.camera);
   }

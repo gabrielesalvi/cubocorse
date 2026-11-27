@@ -85,6 +85,10 @@ REG = "sw.js?v=${encodeURIComponent(versione)}"
 t = T.read_text(encoding='utf-8')
 if REG not in t: raise SystemExit('registrazione del service worker cambiata in src/ui/tocco.js: aggiorna REG in questo script')
 T.write_text(t.replace(REG, "sw.js?v=${encodeURIComponent(versione + '-%s')}" % commit), encoding='utf-8')
+VJ = DEST / 'src' / 'versione.js'
+vj = VJ.read_text(encoding='utf-8')
+if "export const COMMIT = '';" not in vj: raise SystemExit('src/versione.js: manca COMMIT, aggiorna questo script')
+VJ.write_text(vj.replace("export const COMMIT = '';", f"export const COMMIT = '{commit}';"), encoding='utf-8')   # 27-11: nella riga «Cali»
 (DEST / 'manifest.webmanifest').write_text((DEST / 'manifest.webmanifest').read_text(encoding='utf-8').replace('"lang": "it",', f'"lang": "it",\n  "version": "{ver.group(1) if ver else "?"}-{commit}",', 1), encoding='utf-8')
 
 n = sum(1 for p in DEST.rglob('*') if p.is_file())

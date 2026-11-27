@@ -5,3 +5,6 @@
 // La imposta tools/rilascio.py al momento della pubblicazione (con il tag git vX.Y.Z); «-pre» = non ancora pubblicata.
 // Le novità per chi gioca sono in CHANGELOG.md (pannello «Novità» del menu); le versioni delle piste in data/versioni-piste.json.
 export const VERSIONE = '1.0.0';
+// 27-11: commit pubblicato (lo scrive strumenti/importa.py di cubocorse-sito; vuoto = copia locale): esce nella riga «Cali»,
+// così da ogni misura si capisce con quale versione è stata fatta (anche se l'app sul telefono era rimasta vecchia)
+export const COMMIT = '4e713c0';

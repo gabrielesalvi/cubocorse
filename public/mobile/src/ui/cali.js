@@ -11,7 +11,7 @@
 //    arriva solo dalla copia su Tailscale, dal sito pubblico si copia).
 // Costo: una fotografia ogni 5 s (giro della scena, qualche ms); il resto è trascurabile. Senza ?fps=1 non c'è niente.
 import { dispositivo } from './misura.js';
-import { VERSIONE } from '../versione.js';
+import { VERSIONE, COMMIT } from '../versione.js';
 
 const FINESTRA = 0.5;        // s
 const SOGLIA = 0.7;          // calo: sotto il 70% degli fps normali
@@ -195,7 +195,7 @@ export class RegistroCali {
     const ord = [...this.dts].sort((x, y) => x - y), tot = this.dts.reduce((s, x) => s + x, 0);
     const R = this.R, c = R?.domElement, b = this.batteria;
     return {
-      tipo: 'cali', quando: new Date().toISOString(), versione: VERSIONE, prova: prova(),
+      tipo: 'cali', quando: new Date().toISOString(), versione: VERSIONE, commit: COMMIT || 'locale', prova: prova(),
       pista: this.app.pistaId?.() || this.app.settings.track, qual: this.app.settings.qual,
       // 25-11 (tabella dell'iPhone: «auto», 22 fps costanti, nessun calo = nessun dettaglio): la qualità davvero in uso,
       // la frequenza dello schermo, il tetto a 60 e le medie di tutto il giro anche quando i cali non ci sono
@@ -286,7 +286,7 @@ function prova() {
 
 function testoCali(d) {
   const M = d.medie || {};
-  const r = [`Cali · ${d.pista} · ${d.qual}${d.qualEffettiva && d.qualEffettiva !== d.qual ? ' → ' + d.qualEffettiva : ''}${d.prova ? ' [' + d.prova + ']' : ''} · ${d.secondi} s · fps medi ${d.fps}, normali ${d.fpsNormali}, 1% ${d.fps1} · ${d.risoluzione} · ${d.corrente || ''} · ${d.dispositivo.gpu}`];
+  const r = [`Cali · v${d.versione}${d.commit ? ' ' + d.commit : ''} · ${d.pista} · ${d.qual}${d.qualEffettiva && d.qualEffettiva !== d.qual ? ' → ' + d.qualEffettiva : ''}${d.prova ? ' [' + d.prova + ']' : ''} · ${d.secondi} s · fps medi ${d.fps}, normali ${d.fpsNormali}, 1% ${d.fps1} · ${d.risoluzione} · ${d.corrente || ''} · ${d.dispositivo.gpu}`];
   if (M.cpu != null) r.push(`media del giro: CPU ${M.cpu} (${M.fis}+${M.dis}), GPU ${M.gpu ?? '—'}, ${M.chiamate} ch ${M.tri} k tri${d.hz ? ` · schermo ${d.hz} Hz${d.tetto60 ? ', tetto a 60' : ''}` : ''}`);
   for (const e of d.episodi) r.push(`${tempo(e.t)} ${e.s} m (${e.giro}%) ${e.durata} s: ${e.fpsMin}/${e.rif} fps, CPU ${e.cpu} (${e.fis}+${e.dis}), GPU ${e.gpu ?? '—'}, ${e.chiamate} ch ${e.tri} k tri, ${e.colpa}; ${e.cresce || ''}`);
   return r.join('\n');

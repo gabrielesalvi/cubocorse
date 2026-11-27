@@ -20,6 +20,7 @@ e quella di prima resta consultabile dalla tendina dei record.
 - L'auto nella vetrina del menu si gira bene anche col dito: segue il dito e, lasciata, continua a girare per inerzia.
 - Mentre una pista si prepara dietro il menu, l'auto della vetrina continua a girare: il caricamento lascia spazio al disegno invece di bloccarlo per secondi.
 - Qualità Ultra sulle piste di Cubo Corse: alberi e pubblico come in Alta (prima +30% e +20%); Ultra aggiunge solo effetti.
+- Roncacircuit più leggero a Telefono e Bassa: alberi più semplici, palazzi con i dettagli solo vicino alla pista, terreno e strade a maglia più larga, vista fino a 1,6 km nella nebbia. Circa il 40% di triangoli e il 20% di chiamate di disegno in meno; sul PC nelle altre qualità non cambia niente.
   Il pannello resta uguale qualunque circuito scegli. Roncadelle è un circuito solo, «Roncacircuit», con le sue
   varianti (per ora Classico e Nenni); i record di prima restano.
 

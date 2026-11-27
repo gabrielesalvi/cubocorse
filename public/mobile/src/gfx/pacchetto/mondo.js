@@ -24,11 +24,14 @@ import { luciNotte, Notte } from '../../../cs/viewer/src/costruttori/notte.js';
 import { starsPoints } from '../textures.js';
 
 import { cediSeServe } from '../../cedi.js';
+import { alberiLeggeri } from './leggera.js';
 // 27-11: fra un passo e l'altro un fotogramma vero (prima setTimeout 0: il browser spesso non disegnava, vetrina ferma)
 const pausa = cediSeServe;
 
 /** costruisce il mondo della versione v; avanza(frazione, testo) per la barra di caricamento */
-export async function costruisciMondo(dati, v, avanza = () => {}) {
+export async function costruisciMondo(dati, v, avanza = () => {}, { leggera = false } = {}) {
+  // 27-11: città leggera (Telefono e Bassa): maglia più larga, dettagli dei palazzi solo vicino alla pista, alberi semplici
+  const L2 = leggera ? 2 : 1;
   const { circuito, terreno, contesto, comune, versioni } = dati;
   const V = versioni[v], lv = V.livelli;
   const g = new THREE.Group(); g.name = 'mondo';
@@ -36,17 +39,17 @@ export async function costruisciMondo(dati, v, avanza = () => {}) {
   const ombra = (o, cast = true, rec = true) => { o.traverse((m) => { if (m.isMesh) { m.castShadow = cast; m.receiveShadow = rec; } }); return o; };
   const add = (o, cast = false) => { g.add(ombra(o, cast, true)); return o; };
   const passi = [
-    ['terreno', () => add(terrenoMesh(terreno))],
-    ['verde', () => add(superficie(contesto.verde, { terreno, colore: SUPERFICI.verde, scarto: 0.02, nome: 'Verde', passo: 10, lato: 10 }))],
-    ['campi', () => add(superficie(contesto.campi, { terreno, colore: SUPERFICI.campo, scarto: 0.03, nome: 'Campi sportivi' }))],
-    ['parcheggi', () => add(superficie(contesto.parcheggi, { terreno, colore: SUPERFICI.parcheggio, scarto: 0.035, nome: 'Parcheggi' }))],
+    ['terreno', () => add(terrenoMesh(terreno, leggera ? { salto: 2 } : {}))],
+    ['verde', () => add(superficie(contesto.verde, { terreno, colore: SUPERFICI.verde, scarto: 0.02, nome: 'Verde', passo: 10, lato: 10 * L2 }))],
+    ['campi', () => add(superficie(contesto.campi, { terreno, colore: SUPERFICI.campo, scarto: 0.03, nome: 'Campi sportivi', lato: 6 * L2 }))],
+    ['parcheggi', () => add(superficie(contesto.parcheggi, { terreno, colore: SUPERFICI.parcheggio, scarto: 0.035, nome: 'Parcheggi', lato: 6 * L2 }))],
     // 27-11: in tre passi (landmark, palazzi, campi) invece di uno: fra l'uno e l'altro il menu disegna
     ['edifici', () => { g.userData._LM = landmarkDettagliati(circuito, contesto, terreno); add(g.userData._LM.gruppo, true); }],   // landmark descritti al posto dei volumi semplici
     ['palazzi', () => { const LM = g.userData._LM; delete g.userData._LM;
-      add(edificiCitta(contesto.edifici.filter((e) => !LM.ids.has(e.landmark)), { asse: circuito.asse.punti, nucleo: nucleoStorico(circuito) }), true); }],
+      add(edificiCitta(contesto.edifici.filter((e) => !LM.ids.has(e.landmark)), { asse: circuito.asse.punti, nucleo: nucleoStorico(circuito), ...(leggera ? { vicino: 60 } : {}) }), true); }],
     ['impianti sportivi', () => add(campiSportivi(contesto.campi, terreno), true)],
     ['pensiline', () => { const DS = distributori(circuito, contesto, terreno, versioni); add(DS.gruppo, true); add(volumi((contesto.pensiline || []).filter((p) => !DS.usate.has(p)), { nome: 'Pensiline' }), true); }],
-    ['alberi', () => add(alberi(contesto.alberi, { terreno, nome: 'Alberi', escludi: (f) => f & (v === 'A' ? 1 : 2) }), true)],
+    ['alberi', () => { const A = add(alberi(contesto.alberi, { terreno, nome: 'Alberi', escludi: (f) => f & (v === 'A' ? 1 : 2) }), true); if (leggera) g.userData.alberiLeggeri = alberiLeggeri(A); }],
   ];
   const alza = rialzo(circuito, V.bordi_pista, terreno);
   passi.push(
@@ -58,14 +61,14 @@ export async function costruisciMondo(dati, v, avanza = () => {}) {
       if (lv.ciclabile?.poligoni?.length) add(cordoliCiclabile(lv.ciclabile, { terreno }), true);
       if (lv.pavimenti?.poligoni?.length) add(pavimentoTexture(lv.pavimenti, { terreno, alza }));
     }],
-    ['strade', () => add(superficie(lv.strade.poligoni, { terreno, colore: SUPERFICI.asfalto_strada, scarto: 0.05, nome: 'Strade', passo: 8, lato: 8 }))],
+    ['strade', () => add(superficie(lv.strade.poligoni, { terreno, colore: SUPERFICI.asfalto_strada, scarto: 0.05, nome: 'Strade', passo: 8, lato: 8 * L2 }))],
     ['marciapiedi', () => add(rilievo(lv.marciapiedi.poligoni, { terreno, colore: SUPERFICI.marciapiede, altezza: 0.15, nome: 'Marciapiedi' }))],
-    ['pista', () => add(superficie(lv.pista.poligoni, { terreno, colore: SUPERFICI.asfalto_pista, scarto: 0.08, nome: 'Pista', alza }))],   // la gommatura è una texture (asfalto.js), non serve una mesh fitta
+    ['pista', () => add(superficie(lv.pista.poligoni, { terreno, colore: SUPERFICI.asfalto_pista, scarto: 0.08, nome: 'Pista', alza, lato: 6 * L2 }))],   // la gommatura è una texture (asfalto.js), non serve una mesh fitta
     ['ponte', () => add(nastro3d(lv.ponte, { terreno, nome: 'Cavalcavia' }), true)],
     ['fughe', () => {
-      if (lv.fuga_asfalto) add(superficie(lv.fuga_asfalto.poligoni, { terreno, colore: SUPERFICI.asfalto_fuga, scarto: 0.07, nome: 'Fuga asfalto', alza }));
-      if (lv.fuga_erba) add(superficie(lv.fuga_erba.poligoni, { terreno, colore: SUPERFICI.erba_fuga, scarto: 0.07, nome: 'Fuga erba', alza }));
-      if (lv.fuga_ghiaia?.poligoni.length) add(superficie(lv.fuga_ghiaia.poligoni, { terreno, colore: SUPERFICI.ghiaia_fuga, scarto: 0.075, nome: 'Fuga ghiaia', alza }));
+      if (lv.fuga_asfalto) add(superficie(lv.fuga_asfalto.poligoni, { terreno, colore: SUPERFICI.asfalto_fuga, scarto: 0.07, nome: 'Fuga asfalto', alza, lato: 6 * L2 }));
+      if (lv.fuga_erba) add(superficie(lv.fuga_erba.poligoni, { terreno, colore: SUPERFICI.erba_fuga, scarto: 0.07, nome: 'Fuga erba', alza, lato: 6 * L2 }));
+      if (lv.fuga_ghiaia?.poligoni.length) add(superficie(lv.fuga_ghiaia.poligoni, { terreno, colore: SUPERFICI.ghiaia_fuga, scarto: 0.075, nome: 'Fuga ghiaia', alza, lato: 6 * L2 }));
     }],
     ['cordoli', () => {
       if (lv.cordoli) add(superficie(lv.cordoli.poligoni, { terreno, colore: (p) => SEGNI[p.colore], scarto: 0.12, nome: 'Cordoli', passo: 1e9, lato: 0, alza }));
@@ -112,7 +115,7 @@ export async function costruisciMondo(dati, v, avanza = () => {}) {
   // (tassella.js; ?tasselli=0 per confrontare senza, ?tasselli=<lato mesh>,<lato istanze> in metri per provare altre misure)
   const T = new URLSearchParams(globalThis.location?.search || '').get('tasselli');
   await pausa();
-  if (T !== '0') { const [a, b, c] = (T || '').split(',').map(Number); g.userData.tasselli = await tassella(g, T ? { lato: a || 1e9, latoIstanze: b || a || 1e9, minTri: c || undefined } : {}); }
+  if (T !== '0') { const [a, b, c] = (T || '').split(',').map(Number); g.userData.tasselli = await tassella(g, T ? { lato: a || 1e9, latoIstanze: b || a || 1e9, minTri: c || undefined } : leggera ? { lato: 600, latoIstanze: 800, minTri: 30000 } : {}); }   // leggera: riquadri più grandi = meno chiamate (misurato 27-11: 440 → 355 chiamate, triangoli comunque −40%)
   g.updateMatrixWorld(true);
   return g;
 }
@@ -174,6 +177,13 @@ export class Cielo {
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   }
+  /** 27-11: k > 0 = cupola rimpicciolita di k che segue la camera (vista corta della città leggera); 0 = ferma, intera */
+  vicino(k) {
+    const C = this.cupola;
+    C.scale.setScalar(k || 1);
+    C.onBeforeRender = k ? (r, s, cam) => { C.position.copy(cam.position); C.updateMatrixWorld(); } : () => {};
+    if (!k) { C.position.set(0, 0, 0); C.updateMatrixWorld(); }
+  }
   /** ora del giorno e meteo: direzione e colore del sole, cielo, nebbia, pioggia */
   imposta(ora = 'giorno', meteo = 'sereno') {
     const O = ORE[ora] || ORE.giorno, M = METEO[meteo] || METEO.sereno;
@@ -206,7 +216,12 @@ export class Cielo {
     if (this.pioggia) this.pioggia.linee.visible = !!M.pioggia;
   }
   update(dt, cam) {
-    if (this.stelle.visible) { this.stelle.position.copy(cam.position); this.luna.position.copy(this.dir).multiplyScalar(2800).add(cam.position); }
+    if (this.stelle.visible) {
+      // 27-11: con la vista corta (città leggera) stelle e luna più vicine e più piccole, stessa grandezza apparente
+      const k = Math.min(1, (cam.far * 0.85) / 3000);
+      this.stelle.scale.setScalar(k); this.luna.scale.setScalar(k);
+      this.stelle.position.copy(cam.position); this.luna.position.copy(this.dir).multiplyScalar(2800 * k).add(cam.position);
+    }
     if (this.pioggia && this.pioggia.linee.visible) this.pioggia.update(dt, cam);
   }
 

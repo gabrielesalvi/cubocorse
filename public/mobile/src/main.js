@@ -17,7 +17,7 @@ import { AudioEngine } from './audio/audio.js';
 import * as UI from './ui/ui.js';
 import { Pad, PadSchermata, nomeController } from './ui/pad.js';
 import { MondoVoxel, PISTE_VOXEL, elencoVoxel, INFO_VOXEL } from './mondi/voxel.js';
-import { MondoPacchetto, elencoPacchetti, INFO_PACCHETTO } from './mondi/pacchetto.js';
+import { MondoPacchetto, elencoPacchetti, INFO_PACCHETTO, qualitaAutoCS } from './mondi/pacchetto.js';
 import { Vetrina } from './ui/vetrina.js';
 import { caricaVersioni, versionePista, storiaPista, chiaveRecord } from './ui/versioni.js';   // 21-11: versioni delle piste
 import { mostraNovita, novitaDaMostrare } from './ui/novita.js';
@@ -208,7 +208,9 @@ class App {
   /** nome della pista con la versione, per i titoli dei record */
   nomeRecord(v) { const id = this.pistaId(); return `${this.nomiPiste?.[id] || id} · v${v ?? versionePista(id)}`; }
   /** cosa serve costruire per la scelta del menu (la qualità conta solo nel mondo voxel: là cambia la costruzione) */
-  chiaveSelezione() { const t = this.pista(); return `${t.id}|${this.versione(t)}|${t.mondo === 'voxel' ? this.settings.qual : ''}`; }
+  chiaveSelezione() { const t = this.pista(); return `${t.id}|${this.versione(t)}|${t.mondo === 'voxel' ? this.settings.qual : this.cittaLeggera() ? 'leggera' : ''}`; }
+  /** 27-11: piste di Circuit Studio a Telefono o Bassa (anche con «Auto» che le sceglie): città leggera, va ricostruita */
+  cittaLeggera() { if (new URLSearchParams(location.search).get('leggera') === '0') return false; const q = this.settings.qual === 'auto' ? qualitaAutoCS() : this.settings.qual; return q === 'telefono' || q === 'basso'; }
   /** la pista scelta è quella pronta dietro il menu? */
   pronta() { return !!this.mondo && !this._prep && this.chiaveMondo === this.chiaveSelezione(); }
 
@@ -239,7 +241,7 @@ class App {
         M = t.mondo === 'voxel' ? new MondoVoxel(canvas, s) : new MondoPacchetto(canvas, s);
         if (M.tipo === 'voxel') M.usaDati(this.datiVoxel); else M.cacheDati = this.cachePacchetti;
         M.avviso = (m) => UI.toast(m, 6000);
-        const res = await M.carica(t.id, { ...s, versione: this.versione(t) || s.versione }, (p, m) => {
+        const res = await M.carica(t.id, { ...s, versione: this.versione(t) || s.versione, leggera: chiave.endsWith('|leggera') }, (p, m) => {
           if (job.annullato) throw ANNULLATO;
           job.tempi.push([performance.now(), m.replace(/…$/, '')]);
           if (this._prep === job) this.statoCarico(p, `${t.nome}: ${m.replace(/…$/, '')}`);
@@ -433,7 +435,10 @@ class App {
     }
     else if (k === 'qual') {
       if (this.pista().mondo === 'voxel') this.prepara();            // nel mondo voxel la qualità cambia la costruzione
-      else if (W && W.tipo === 'pacchetto') W.impostaQualita(s.qual === 'auto' ? W.qualitaAuto() : s.qual);
+      else if (W && W.tipo === 'pacchetto') {
+        W.impostaQualita(s.qual === 'auto' ? W.qualitaAuto() : s.qual);
+        if (this.mode === 'menu' && this.chiaveMondo !== this.chiaveSelezione()) this.prepara();   // città leggera sì/no: si ricostruisce (in gara alla prossima partenza)
+      }
     } else if ((k === 'ora' || k === 'meteo') && stessoMondo) { W.atmosfera(s); this.setupRace(false); }
     else if (['car', 'livery', 'stileAuto'].includes(k)) { this.aggiornaVetrina(); if (W) this.setupRace(false); }
     else if (['modo', 'nAuto', 'grid'].includes(k) && W) this.setupRace(false);

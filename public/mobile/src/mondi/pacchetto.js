@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { caricaPacchetto } from '../../cs/viewer/src/dati/pacchetto.js';
 import { TIFO, sorgentiTifo } from '../../cs/viewer/src/costruttori/pubblico.js';
 import { pistaDaPacchettoAsync } from '../sim/pista.js';
+import { VISTA_LEGGERA } from '../gfx/pacchetto/leggera.js';
 import { costruisciMondo, Cielo, ORE, METEO } from '../gfx/pacchetto/mondo.js';
 import { gommaTraiettoria } from '../gfx/pacchetto/asfalto.js';
 import { aggiungiFari } from '../gfx/pacchetto/fari.js';
@@ -45,6 +46,18 @@ export function gpuTipo(nome) {   // come gpuKind di Cubo Corse
 
 /** ora, meteo e qualità del mondo dei pacchetti, per il menu (niente filtri foto) */
 export const INFO_PACCHETTO = { ORE, METEO, QUALITA, FILTRI: null, oraPredefinita: 'giorno' };
+
+/** 27-11: la qualità che «Auto» darà su questo dispositivo, senza un mondo costruito (main.js: città leggera o no) */
+let _autoCS = null;
+export function qualitaAutoCS() {
+  if (document.body.classList.contains('tocco')) return 'telefono';
+  if (!_autoCS) {
+    let nome = '';
+    try { const c = document.createElement('canvas'), gl = c.getContext('webgl2') || c.getContext('webgl'), ext = gl?.getExtension('WEBGL_debug_renderer_info'); nome = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : ''; gl?.getExtension('WEBGL_lose_context')?.loseContext(); } catch { /* niente */ }
+    const k = gpuTipo(nome); _autoCS = k === 'software' ? 'basso' : k === 'integrata' ? 'medio' : 'alto';
+  }
+  return _autoCS;
+}
 
 export class MondoPacchetto {
   constructor(canvas, settings) {
@@ -114,7 +127,8 @@ export class MondoPacchetto {
     avanza(0.18, 'Calcolo la traiettoria ideale…'); await nextFrame();
     const rl = await rlFn(track);
     if (this.mondo) { this.scene.remove(this.mondo); this.mondo.traverse((o) => { if (o.geometry) o.geometry.dispose(); }); }
-    this.mondo = await costruisciMondo(this.dati, v, (p, t) => avanza(0.25 + p * 0.7, `Costruisco il modello: ${t}…`));
+    this.leggera = !!settings.leggera;          // 27-11: città leggera (Telefono e Bassa), decisa da main.js con la chiave della pista
+    this.mondo = await costruisciMondo(this.dati, v, (p, t) => avanza(0.25 + p * 0.7, `Costruisco il modello: ${t}…`), { leggera: this.leggera });
     this.scene.add(this.mondo);
     gommaTraiettoria(this.mondo, track, rl);           // rev. 9: gomma sulla traiettoria (asfalto.js)
     this.mostraPubblico();
@@ -154,6 +168,11 @@ export class MondoPacchetto {
     this._personeOn = !!Qk.persone; this.cullPersone(0, true);
     const ora = ORE[this.ora] ? this.ora : this.oraPredefinita, meteo = METEO[this.meteo] ? this.meteo : 'sereno';
     this.cielo.imposta(ora, meteo);
+    // 27-11: città leggera: si disegna fino a 1,6 km, la nebbia chiude prima e il cielo segue la camera (dentro la vista)
+    const vista = this.leggera ? VISTA_LEGGERA : 12000, F = this.scene.fog;
+    if (this.camera.far !== vista) { this.camera.far = vista; this.camera.updateProjectionMatrix(); }
+    if (this.leggera) { F.far = Math.min(F.far, vista - 150); F.near = Math.min(F.near, F.far * 0.4); }
+    this.cielo.vicino(this.leggera ? (vista - 100) / 6000 : 0);
     // fumo e polvere non sono illuminati: il loro colore segue la luce dell'ora (notte scura, tramonto più caldo e basso)
     this.fx.impostaLuce((ORE[ora].notte ? 0.16 : ora === 'tramonto' ? 0.78 : ora === 'mattina' ? 0.92 : 1) * (meteo === 'sereno' ? 1 : 0.88));
     this.accendiNotte();
